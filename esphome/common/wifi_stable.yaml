@@ -1,0 +1,9 @@
+# WiFi config with ESP32-C3 stability workaround
+# Forces 802.11b/g only and conservative power settings
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none
+  enable_on_boot: true
+  fast_connect: true
+  output_power: 8.5
