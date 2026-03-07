@@ -50,7 +50,7 @@ fn main() -> Result<()> {
     )?;
 
     let mut display = Builder::new(ILI9341Rgb565, SPIInterface::new(spi, dc))
-        .orientation(Orientation::new().rotate(mipidsi::options::Rotation::Deg90))
+        .orientation(Orientation::new().rotate(mipidsi::options::Rotation::Deg270))
         .init(&mut Ets)
         .map_err(|e| anyhow::anyhow!("Display init: {:?}", e))?;
 
