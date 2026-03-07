@@ -1,0 +1,27 @@
+   NAME:     2 - A&K BR
+   ID:       blt.2.1nm0gofrdoc00
+   BLE KEY:  788d93a86706563e18f71b2857b60d6c
+   MAC:      A4:C1:38:8F:A0:C6
+   TOKEN:    430f52cd1d0e8ce5b3368f82
+   MODEL:    miaomiaoce.sensor_ht.t2
+
+   NAME:     1 - Kitchen
+   ID:       blt.2.1nm0gbij9o000
+   BLE KEY:  3fd553b4e78399d4c67eae466f599dc9
+   MAC:      A4:C1:38:70:44:3C
+   TOKEN:    f4b14f006f45839e414be6df
+   MODEL:    miaomiaoce.sensor_ht.t2
+ 
+   NAME:     3 - Amos
+   ID:       blt.2.1nm0h3jttoc00
+   BLE KEY:  7195a21bf66ab49202f9804efefa0a21
+   MAC:      A4:C1:38:A3:77:5D
+   TOKEN:    1572e5fe9ed3f9ca6b54a644
+   MODEL:    miaomiaoce.sensor_ht.t2
+
+   NAME:     4 - red room
+   ID:       blt.2.1nm0hga0ho400
+   BLE KEY:  663971db5ceed887a40da013a5bb2c3f
+   MAC:      A4:C1:38:EE:77:6D
+   TOKEN:    675fa08eb78d1d66e4b240f1
+   MODEL:    miaomiaoce.sensor_ht.t2

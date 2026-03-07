@@ -1,0 +1,258 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{39F45A2F-E298-4073-8E84-A95924A43363}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>BK7231Flasher</RootNamespace>
+    <AssemblyName>BK7231Flasher</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
+    <LangVersion>8.0</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>CS0168, CS0162, CS0649</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>bk_icon.ico</ApplicationIcon>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Buffers" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Memory" />
+    <Reference Include="System.Net" />
+    <Reference Include="System.Runtime.CompilerServices.Unsafe" />
+    <Reference Include="System.Text.Json" />
+    <Reference Include="System.Threading.Tasks.Extensions" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Configuration" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Utils\Beken_Crypto.cs" />
+    <Compile Include="FormMain.Decryption.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Flashers\RDAFlasher.cs" />
+    <Compile Include="Utils\Xmodem.cs" />
+    <Compile Include="Flashers\WMFlasher.cs" />
+    <Compile Include="Flashers\ECR6600Flasher.cs" />
+    <Compile Include="Flashers\BaseFlasher.cs" />
+    <Compile Include="Helpers\BitUtils.cs" />
+    <Compile Include="Flashers\BK7231Flasher.cs" />
+    <Compile Include="Misc\BKFlashList.cs" />
+    <Compile Include="Flashers\RTLZ2Flasher.cs" />
+    <Compile Include="Flashers\BL602Flasher.cs" />
+    <Compile Include="Utils\CH341DEV.cs" />
+    <Compile Include="Helpers\Colors.cs" />
+    <Compile Include="Misc\ConfigBase.cs" />
+    <Compile Include="Utils\CRC.cs" />
+    <Compile Include="Utils\EasyFlash.cs" />
+    <Compile Include="Helpers\FLoaders.cs" />
+    <Compile Include="FormDownloader.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormDownloader.Designer.cs">
+      <DependentUpon>FormDownloader.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormExtractedConfig.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormExtractedConfig.Designer.cs">
+      <DependentUpon>FormExtractedConfig.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormMain.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormMain.Designer.cs">
+      <DependentUpon>FormMain.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormMain_Net_Scanner.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormMain_Net_SingleDevice.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormMain_TuyaConfigExtractor.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormOBKConfig.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormOBKConfig.Designer.cs">
+      <DependentUpon>FormOBKConfig.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormPin.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormPin.Designer.cs">
+      <DependentUpon>FormPin.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormCustom.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormCustom.Designer.cs">
+      <DependentUpon>FormCustom.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormPrompt.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormPrompt.Designer.cs">
+      <DependentUpon>FormPrompt.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Helpers\ILogListener.cs" />
+    <Compile Include="Flashers\LN882HFlasher.cs" />
+    <Compile Include="Utils\MiscUtils.cs" />
+    <Compile Include="Helpers\ModifyProgressBarColor.cs" />
+    <Compile Include="Misc\MySettings.cs" />
+    <Compile Include="Misc\OBKConfig.cs" />
+    <Compile Include="Misc\OBKDeviceAPI.cs" />
+    <Compile Include="Misc\OBKFlags.cs" />
+    <Compile Include="Misc\OBKFlashLayout.cs" />
+    <Compile Include="Misc\OBKMassBackup.cs" />
+    <Compile Include="Misc\OBKRoles.cs" />
+    <Compile Include="Misc\OBKScanner.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Helpers\Rand.cs" />
+    <Compile Include="Flashers\RTLFlasher.cs" />
+    <Compile Include="Flashers\SPIFlasher.cs" />
+    <Compile Include="Flashers\SPIFlasher_Beken.cs" />
+    <Compile Include="Utils\TuyaConfig.cs" />
+    <Compile Include="Utils\RFPartitionUtil.cs" />
+    <Compile Include="Helpers\RichTextUtil.cs" />
+    <Compile Include="Misc\TuyaModules.cs" />
+    <Compile Include="Utils\YModem.cs" />
+    <EmbeddedResource Include="FormDownloader.resx">
+      <DependentUpon>FormDownloader.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormExtractedConfig.resx">
+      <DependentUpon>FormExtractedConfig.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormMain.resx">
+      <DependentUpon>FormMain.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormOBKConfig.resx">
+      <DependentUpon>FormOBKConfig.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormPin.resx">
+      <DependentUpon>FormPin.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormCustom.resx">
+      <DependentUpon>FormCustom.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormPrompt.resx">
+      <DependentUpon>FormPrompt.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <None Include="app.config" />
+    <AdditionalFiles Include="easyflash\libef.so">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </AdditionalFiles>
+    <AdditionalFiles Include="easyflash\libef_ECR.so">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </AdditionalFiles>
+    <AdditionalFiles Include="easyflash\libef_GRAN8.so">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </AdditionalFiles>
+    <EmbeddedResource Include="Floaders\AmebaDFLoader.bin" />
+    <EmbeddedResource Include="Floaders\AmebaZ_NewFloader.bin" />
+    <EmbeddedResource Include="Floaders\BK7231N_1_0_1.bin" />
+    <EmbeddedResource Include="Floaders\BK7231N_1_0_13.bin" />
+    <EmbeddedResource Include="Floaders\BL602Floader.bin" />
+    <EmbeddedResource Include="Floaders\BL602_1MBPartitions.bin" />
+    <EmbeddedResource Include="Floaders\BL602_AppHdr.bin" />
+    <EmbeddedResource Include="Floaders\BL602_Boot.bin" />
+    <EmbeddedResource Include="Floaders\BL602_Dts.bin" />
+    <EmbeddedResource Include="Floaders\BL602_Partitions.bin" />
+    <EmbeddedResource Include="Floaders\BL702Floader.bin" />
+    <EmbeddedResource Include="Floaders\ECR6600_Stub_Custom.bin" />
+    <EmbeddedResource Include="Floaders\LN882H_RamCode.bin" />
+    <EmbeddedResource Include="Floaders\W800_Stub.bin" />
+    <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="bk_icon.ico" />
+    <AdditionalFiles Include="easyflash\WinEF_GRAN8_x64.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </AdditionalFiles>
+    <AdditionalFiles Include="easyflash\WinEF_GRAN8_x86.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </AdditionalFiles>
+    <AdditionalFiles Include="easyflash\WinEF_x64.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </AdditionalFiles>
+    <AdditionalFiles Include="easyflash\WinEF_x86.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </AdditionalFiles>
+    <AdditionalFiles Include="easyflash\WinEF_ECR_x64.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </AdditionalFiles>
+    <AdditionalFiles Include="easyflash\WinEF_ECR_x86.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </AdditionalFiles>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="BeforeBuild">
+    <ItemGroup>
+      <AssemblyAttributes Include="BK7231Flasher.BuildVersion">
+        <_Parameter1>$(FLASHERVERSION)</_Parameter1>
+      </AssemblyAttributes>
+    </ItemGroup>
+    <WriteCodeFragment AssemblyAttributes="@(AssemblyAttributes)" Language="C#" OutputFile="BuildVersion.cs">
+      <Output TaskParameter="OutputFile" ItemName="Compile" />
+      <Output TaskParameter="OutputFile" ItemName="FileWrites" />
+    </WriteCodeFragment>
+  </Target>
+</Project>

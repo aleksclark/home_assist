@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(lsusb:*)",
+      "Bash(dmesg:*)",
+      "Bash(journalctl:*)",
+      "Bash(ssh:*)",
+      "Bash(mkdir:*)",
+      "Bash(python3:*)",
+      "Bash(esphome run:*)",
+      "Bash(esphome upload:*)",
+      "Bash(timeout 30 esphome logs:*)",
+      "Bash(timeout 60 esphome logs:*)",
+      "Bash(avahi-resolve:*)",
+      "Bash(ping:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://192.168.0.3:8123/)",
+      "Bash(curl -sL http://192.168.0.3:8123/api/)",
+      "Bash(curl -sL http://192.168.0.3:8123/onboarding)",
+      "Bash(curl -sL http://192.168.0.3:8123/api/onboarding)",
+      "Bash(timeout:*)",
+      "Bash(ls:*)",
+      "Bash(pip3 show:*)",
+      "Bash(curl -sL \"https://api.github.com/repos/openshwprojects/OpenBK7231T_App/releases/latest\")",
+      "Bash(curl -LO \"https://github.com/openshwprojects/OpenBK7231T_App/releases/download/1.18.236/OpenBK7231N_1.18.236.rbl\")",
+      "Bash(ltchiptool flash write:*)",
+      "WebFetch(domain:192.168.0.48)"
+    ]
+  }
+}

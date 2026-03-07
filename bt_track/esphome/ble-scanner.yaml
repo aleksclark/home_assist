@@ -1,0 +1,51 @@
+esphome:
+  name: ble-scanner
+  friendly_name: BLE Scanner Office
+  includes:
+    - <esp_wifi.h>
+  on_boot:
+    - priority: 300
+      then:
+        lambda: |-
+          esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B|WIFI_PROTOCOL_11G);
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  platform: esphome
+  password: !secret ota_password
+
+
+wifi:
+  ssid: "ClarkUltra"
+  password: "deadbeef00"
+  power_save_mode: none
+  enable_on_boot: True
+  fast_connect: On
+  output_power: 8.5
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 1100ms
+    window: 1100ms
+    active: true
+sensor:
+  - platform: atc_mithermometer
+    mac_address: "A4:C1:38:92:48:AF"
+    temperature:
+      name: "Room Temperature"
+    humidity:
+      name: "Room Humidity"
+    battery_level:
+      name: "Room Battery"
+
+bluetooth_proxy:
+  active: true

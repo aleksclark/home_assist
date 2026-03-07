@@ -1,0 +1,9 @@
+
+*/bin/*
+*/obj/*
+*/.vs/*
+*.bak
+.vs/*
+
+packages
+BuildVersion.cs
