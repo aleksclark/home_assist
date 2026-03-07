@@ -1,0 +1,5 @@
+# Rust build output
+target/
+
+# esp-idf-sys build environment (toolchains, sdks, python venvs)
+.embuild/
