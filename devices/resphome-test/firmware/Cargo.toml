@@ -1,8 +1,7 @@
 [package]
-name = "status-display"
-version = "0.2.0"
+name = "resphome-example"
+version = "0.1.0"
 edition = "2021"
-resolver = "2"
 rust-version = "1.82"
 
 [profile.release]
@@ -13,19 +12,12 @@ debug = true
 opt-level = "z"
 
 [dependencies]
+resphome = { path = "../../../libs/resphome", features = ["esp32"] }
 esp-idf-hal = "0.45"
 esp-idf-svc = { version = "0.51", features = ["std"] }
 esp-idf-sys = { version = "0.36", features = ["binstart"] }
-mipidsi = "0.8"
-display-interface = "0.5"
-display-interface-spi = "0.5"
-embedded-graphics = "0.8"
-embedded-hal = "1"
-embedded-svc = "0.28"
-ha-display-kit = { path = "../../../libs/ha-display-kit" }
 anyhow = "1"
 log = "0.4"
 
 [build-dependencies]
 embuild = "0.33"
-

@@ -1,4 +1,6 @@
-mod ha;
+mod api;
+mod proto;
+mod slots;
 mod ui;
 
 use std::thread;
@@ -24,12 +26,13 @@ use mipidsi::Builder;
 
 const WIFI_SSID: &str = "ClarkUltra";
 const WIFI_PASS: &str = "deadbeef00";
-const POLL_INTERVAL: Duration = Duration::from_secs(30);
+const API_PORT: u16 = 6053;
+const REFRESH_INTERVAL: Duration = Duration::from_millis(500);
 
 fn main() -> Result<()> {
     esp_idf_sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
-    log::info!("Status Display starting...");
+    log::info!("Status Display starting (ESPHome mode)...");
 
     let peripherals = Peripherals::take()?;
     let sysloop = EspSystemEventLoop::take()?;
@@ -59,12 +62,12 @@ fn main() -> Result<()> {
 
     display.clear(Rgb565::new(2, 4, 2)).map_err(|_| anyhow::anyhow!("clear"))?;
 
-    let boot_ui = ui::Dashboard::new(String::new());
-    boot_ui.draw_boot_status(&mut display, "Connecting to WiFi...", None)?;
+    let mut dashboard = ui::Dashboard::new(String::new());
+    dashboard.draw_boot_status(&mut display, "Connecting to WiFi...", None)?;
 
     // -- WiFi --
     let mut wifi = BlockingWifi::wrap(
-        EspWifi::new(peripherals.modem, sysloop.clone(), Some(nvs_partition.clone()))?,
+        EspWifi::new(peripherals.modem, sysloop.clone(), Some(nvs_partition))?,
         sysloop,
     )?;
     wifi.set_configuration(&Configuration::Client(ClientConfiguration {
@@ -76,34 +79,43 @@ fn main() -> Result<()> {
     wifi.connect()?;
     wifi.wait_netif_up()?;
 
-    let ip_str = format!("{}", wifi.wifi().sta_netif().get_ip_info()?.ip);
+    let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
+    let ip_str = format!("{}", ip_info.ip);
     log::info!("WiFi connected! IP: {}", ip_str);
 
-    // -- HA registration --
-    let mut dashboard = ui::Dashboard::new(ip_str.clone());
-    dashboard.draw_boot_status(&mut display, "Connecting to HA...", Some(&ip_str))?;
+    dashboard = ui::Dashboard::new(ip_str.clone());
+    dashboard.draw_boot_status(&mut display, "Starting API server...", Some(&ip_str))?;
 
-    let mut nvs = ha::open_nvs(nvs_partition)?;
-    let webhook_id = ha::register(&mut nvs)?;
-    log::info!("Using webhook_id: {}", webhook_id);
+    // -- MAC address --
+    let mac_bytes = wifi.wifi().sta_netif().get_mac()?;
+    let mac_str = format!(
+        "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
+        mac_bytes[0], mac_bytes[1], mac_bytes[2],
+        mac_bytes[3], mac_bytes[4], mac_bytes[5],
+    );
 
-    dashboard.draw_boot_status(&mut display, "Connected to HA!", Some(&ip_str))?;
-    thread::sleep(Duration::from_secs(1));
 
-    // -- Poll loop --
+    // -- Slot manager --
+    let shared_slots = slots::new_shared();
+
+    // -- API server thread --
+    let api_slots = shared_slots.clone();
+    let api_mac = mac_str.clone();
+    thread::Builder::new()
+        .name("api-server".into())
+        .stack_size(8192)
+        .spawn(move || {
+            api::start_server(api_slots, api_mac, API_PORT);
+        })?;
+
+    dashboard.draw_boot_status(&mut display, "Waiting for HA...", Some(&ip_str))?;
+    log::info!("Ready. Waiting for Home Assistant to connect.");
+
+    // -- Display refresh loop --
     loop {
-        match ha::fetch_dashboard_data(&webhook_id) {
-            Ok(data) => {
-                log::info!("Dashboard data fetched");
-                if let Err(e) = dashboard.update(&mut display, &data) {
-                    log::error!("Draw error: {:?}", e);
-                }
-            }
-            Err(e) => {
-                log::error!("Fetch error: {:?}", e);
-                let _ = dashboard.draw_error(&mut display, &e);
-            }
+        if let Err(e) = dashboard.update(&mut display, &shared_slots) {
+            log::error!("Draw error: {:?}", e);
         }
-        thread::sleep(POLL_INTERVAL);
+        thread::sleep(REFRESH_INTERVAL);
     }
 }

@@ -4,28 +4,52 @@ use anyhow::Result;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::*;
 use ha_display_kit::{
-    capitalize, fill_card, fill_rect, fmt_humidity, fmt_temp, hvac_color, needs_redraw,
-    style_large, style_small, txt, txt_center, BootScreen, Region, Theme,
+    clear_screen, fill_card, fill_rect, style_large, style_small, txt, txt_center, BootScreen,
+    Region, Theme,
 };
 
-use crate::ha::DashboardData;
+use crate::slots::{MetricKind, SharedSlots, MAX_SLOTS};
 
 const SCREEN_W: u32 = 320;
-const SCREEN_CENTER_X: i32 = 160;
+const SCREEN_H: u32 = 240;
+const SCREEN_CX: i32 = 160;
 
-const HEADER: Region  = Region::new(0,   0,   SCREEN_W, 28);
-const KITCHEN: Region = Region::new(8,   36,  148,      70);
-const BEDROOM: Region = Region::new(164, 36,  148,      70);
-const DELLA: Region   = Region::new(8,   114, 304,      60);
-const ECOBEE: Region  = Region::new(8,   182, 304,      26);
-const FOOTER: Region  = Region::new(0,   212, SCREEN_W, 28);
-const CONTENT: Region = Region::new(0,   28,  SCREEN_W, 184);
+const HEADER: Region = Region::new(0, 0, SCREEN_W, 28);
+const FOOTER: Region = Region::new(0, SCREEN_H as i32 - 28, SCREEN_W, 28);
+const CONTENT: Region = Region::new(0, 28, SCREEN_W, SCREEN_H - 56);
+
+const SLOT_REGIONS: [Region; MAX_SLOTS] = [
+    Region::new(8,   36,  148, 56),
+    Region::new(164, 36,  148, 56),
+    Region::new(8,   100, 148, 56),
+    Region::new(164, 100, 148, 56),
+    Region::new(8,   164, 148, 40),
+    Region::new(164, 164, 148, 40),
+];
+
+fn status_color(value: &str, theme: &Theme) -> Rgb565 {
+    match value {
+        "cool" => theme.cool,
+        "heat" => theme.heat,
+        "auto" => theme.auto,
+        "dry" => theme.dry,
+        "fan_only" => theme.fan_only,
+        "off" | "unavailable" | "unknown" => theme.off,
+        "heat_cool" => theme.heat_cool,
+        "on" | "home" | "open" | "unlocked" | "active" | "playing" => theme.value,
+        "idle" | "standby" | "paused" => theme.label,
+        _ => theme.unavail,
+    }
+}
 
 pub struct Dashboard {
     ip: String,
     theme: Theme,
     boot: BootScreen,
-    prev: DashboardData,
+    prev_values: [String; MAX_SLOTS],
+    prev_labels: [String; MAX_SLOTS],
+    prev_kinds: [String; MAX_SLOTS],
+    prev_generation: u32,
     first_draw: bool,
 }
 
@@ -34,8 +58,11 @@ impl Dashboard {
         Self {
             ip,
             theme: Theme::GREEN,
-            boot: BootScreen::new("Status Display", SCREEN_CENTER_X),
-            prev: DashboardData::default(),
+            boot: BootScreen::new("Status Display", SCREEN_CX),
+            prev_values: Default::default(),
+            prev_labels: Default::default(),
+            prev_kinds: Default::default(),
+            prev_generation: 0,
             first_draw: true,
         }
     }
@@ -53,129 +80,122 @@ impl Dashboard {
     }
 
     pub fn update<D: DrawTarget<Color = Rgb565>>(
-        &mut self, d: &mut D, data: &DashboardData,
+        &mut self, d: &mut D, slots: &SharedSlots,
     ) -> Result<()> {
-        let t = &self.theme;
-
-        if self.first_draw {
-            ha_display_kit::clear_screen(d, t)?;
-            self.draw_header(d)?;
-            self.draw_footer(d)?;
-            self.draw_kitchen(d, data)?;
-            self.draw_bedroom(d, data)?;
-            self.draw_della(d, data)?;
-            self.draw_ecobee(d, data)?;
-            self.prev = data.clone();
-            self.first_draw = false;
+        let mgr = slots.lock().unwrap();
+        let gen = mgr.generation();
+        if gen == self.prev_generation && !self.first_draw {
             return Ok(());
         }
 
-        if needs_redraw(
-            &(data.kitchen_temp, data.kitchen_humidity),
-            &(self.prev.kitchen_temp, self.prev.kitchen_humidity),
-        ) {
-            self.draw_kitchen(d, data)?;
+        if self.first_draw {
+            clear_screen(d, &self.theme)?;
+            self.draw_header(d)?;
+            self.draw_footer(d)?;
+            for i in 0..MAX_SLOTS {
+                let slot = mgr.slot(i);
+                self.draw_slot(d, i, &slot.label, &slot.value, &slot.kind, &slot.unit)?;
+                self.prev_values[i] = slot.value.clone();
+                self.prev_labels[i] = slot.label.clone();
+                self.prev_kinds[i] = slot.kind.as_str().to_string();
+            }
+            self.first_draw = false;
+            self.prev_generation = gen;
+            return Ok(());
         }
 
-        if needs_redraw(
-            &(data.bedroom_temp, data.bedroom_humidity),
-            &(self.prev.bedroom_temp, self.prev.bedroom_humidity),
-        ) {
-            self.draw_bedroom(d, data)?;
+        for i in 0..MAX_SLOTS {
+            let slot = mgr.slot(i);
+            let kind_str = slot.kind.as_str().to_string();
+            if slot.value != self.prev_values[i]
+                || slot.label != self.prev_labels[i]
+                || kind_str != self.prev_kinds[i]
+            {
+                self.draw_slot(d, i, &slot.label, &slot.value, &slot.kind, &slot.unit)?;
+                self.prev_values[i] = slot.value.clone();
+                self.prev_labels[i] = slot.label.clone();
+                self.prev_kinds[i] = kind_str;
+            }
         }
 
-        if needs_redraw(
-            &(&data.della_mode, data.della_target_temp, data.della_current_temp, &data.della_fan),
-            &(&self.prev.della_mode, self.prev.della_target_temp, self.prev.della_current_temp, &self.prev.della_fan),
-        ) {
-            self.draw_della(d, data)?;
-        }
-
-        if needs_redraw(
-            &(&data.ecobee_mode, data.ecobee_temp, data.ecobee_humidity),
-            &(&self.prev.ecobee_mode, self.prev.ecobee_temp, self.prev.ecobee_humidity),
-        ) {
-            self.draw_ecobee(d, data)?;
-        }
-
-        self.prev = data.clone();
+        self.prev_generation = gen;
         Ok(())
     }
 
     fn draw_header<D: DrawTarget<Color = Rgb565>>(&self, d: &mut D) -> Result<()> {
-        fill_rect(d, &HEADER, self.theme.accent_bg)?;
-        txt_center(d, "Home Status", Point::new(SCREEN_CENTER_X, 20), style_large(self.theme.header))
+        let t = &self.theme;
+        fill_rect(d, &HEADER, t.accent_bg)?;
+        txt_center(d, "Home Status", Point::new(SCREEN_CX, 20), style_large(t.header))
     }
 
     fn draw_footer<D: DrawTarget<Color = Rgb565>>(&self, d: &mut D) -> Result<()> {
-        fill_rect(d, &FOOTER, self.theme.accent_bg)?;
+        let t = &self.theme;
+        fill_rect(d, &FOOTER, t.accent_bg)?;
         let text = format!("WiFi OK  |  {}", self.ip);
-        txt_center(d, &text, Point::new(SCREEN_CENTER_X, 230), style_small(self.theme.footer))
+        txt_center(d, &text, Point::new(SCREEN_CX, SCREEN_H as i32 - 10), style_small(t.footer))
     }
 
-    fn draw_kitchen<D: DrawTarget<Color = Rgb565>>(&self, d: &mut D, data: &DashboardData) -> Result<()> {
+    fn draw_slot<D: DrawTarget<Color = Rgb565>>(
+        &self, d: &mut D, idx: usize, label: &str, value: &str, kind: &MetricKind, unit: &str,
+    ) -> Result<()> {
         let t = &self.theme;
-        fill_card(d, &KITCHEN, t)?;
-        txt(d, "Kitchen", Point::new(16, 54), style_small(t.label))?;
-        let color = if data.kitchen_temp.is_some() { t.value } else { t.unavail };
-        txt(d, &fmt_temp(data.kitchen_temp), Point::new(16, 82), style_large(color))?;
-        txt(d, &fmt_humidity(data.kitchen_humidity), Point::new(16, 98), style_small(t.label))
-    }
+        let r = &SLOT_REGIONS[idx];
+        fill_card(d, r, t)?;
 
-    fn draw_bedroom<D: DrawTarget<Color = Rgb565>>(&self, d: &mut D, data: &DashboardData) -> Result<()> {
-        let t = &self.theme;
-        fill_card(d, &BEDROOM, t)?;
-        txt(d, "Bedroom", Point::new(172, 54), style_small(t.label))?;
-        let color = if data.bedroom_temp.is_some() { t.value } else { t.unavail };
-        txt(d, &fmt_temp(data.bedroom_temp), Point::new(172, 82), style_large(color))?;
-        txt(d, &fmt_humidity(data.bedroom_humidity), Point::new(172, 98), style_small(t.label))
-    }
+        let lx = r.x + 8;
+        let ly = r.y + 16;
 
-    fn draw_della<D: DrawTarget<Color = Rgb565>>(&self, d: &mut D, data: &DashboardData) -> Result<()> {
-        let t = &self.theme;
-        fill_card(d, &DELLA, t)?;
-        txt(d, "Della Mini Split", Point::new(16, 132), style_small(t.label))?;
+        if !label.is_empty() {
+            txt(d, label, Point::new(lx, ly), style_small(t.label))?;
+        }
 
-        let mode_str = data.della_mode.as_deref().unwrap_or("---");
-        let color = hvac_color(mode_str, t);
-        let main_text = match data.della_target_temp {
-            Some(target) => {
-                let mut s = String::new();
-                write!(s, "{}  {:.0} F", capitalize(mode_str), target).unwrap();
-                s
+        if value.is_empty() || value == "unavailable" || value == "unknown" {
+            txt(d, "---", Point::new(lx, ly + 24), style_large(t.unavail))?;
+            return Ok(());
+        }
+
+        match kind {
+            MetricKind::Numeric => {
+                let display_val = if let Ok(v) = value.parse::<f32>() {
+                    if unit.is_empty() {
+                        let mut s = String::new();
+                        write!(s, "{:.1}", v).unwrap();
+                        s
+                    } else {
+                        let mut s = String::new();
+                        write!(s, "{:.0} {}", v, unit).unwrap();
+                        s
+                    }
+                } else {
+                    value.to_string()
+                };
+                txt(d, &display_val, Point::new(lx, ly + 24), style_large(t.value))?;
             }
-            None => format!("{}  -- F", capitalize(mode_str)),
-        };
-        txt(d, &main_text, Point::new(16, 160), style_large(color))?;
-
-        let fan_text = match &data.della_fan {
-            Some(f) => format!("Fan: {}", f),
-            None => "Fan: ---".into(),
-        };
-        txt(d, &fan_text, Point::new(180, 160), style_small(t.label))
-    }
-
-    fn draw_ecobee<D: DrawTarget<Color = Rgb565>>(&self, d: &mut D, data: &DashboardData) -> Result<()> {
-        let t = &self.theme;
-        fill_card(d, &ECOBEE, t)?;
-
-        let text = match (&data.ecobee_mode, data.ecobee_temp) {
-            (Some(mode), Some(temp)) => {
-                let mut s = String::new();
-                write!(s, "Ecobee: {} {:.0}F", capitalize(mode), temp).unwrap();
-                s
+            MetricKind::Text => {
+                let truncated: String = value.chars().take(20).collect();
+                txt(d, &truncated, Point::new(lx, ly + 24), style_large(t.value))?;
             }
-            (Some(mode), None) => format!("Ecobee: {}", capitalize(mode)),
-            _ => "Ecobee: unavailable".into(),
-        };
-        let color = hvac_color(data.ecobee_mode.as_deref().unwrap_or(""), t);
-        txt(d, &text, Point::new(16, 200), style_small(color))?;
-
-        if let Some(hum) = data.ecobee_humidity {
-            let mut s = String::new();
-            write!(s, "{:.0}% RH", hum).unwrap();
-            txt(d, &s, Point::new(230, 200), style_small(t.label))?;
+            MetricKind::Status => {
+                let color = status_color(value, t);
+                let display = capitalize_first(value);
+                txt(d, &display, Point::new(lx, ly + 24), style_large(color))?;
+            }
         }
         Ok(())
+    }
+}
+
+fn capitalize_first(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => {
+            let mut r = String::new();
+            for ch in f.to_uppercase() {
+                r.push(ch);
+            }
+            r.extend(c);
+            r
+        }
     }
 }

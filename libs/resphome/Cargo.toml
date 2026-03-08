@@ -1,0 +1,22 @@
+[package]
+name = "resphome"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Rust implementation of ESPHome core: Native API protocol, WiFi, BLE proxy, OTA, and sensor framework for ESP32"
+
+[features]
+default = ["std"]
+std = []
+esp32 = ["dep:esp-idf-hal", "dep:esp-idf-svc", "dep:esp-idf-sys"]
+
+[dependencies]
+log = "0.4"
+anyhow = "1"
+
+esp-idf-hal = { version = "0.45", optional = true }
+esp-idf-svc = { version = "0.51", features = ["std"], optional = true }
+esp-idf-sys = { version = "0.36", features = ["binstart"], optional = true }
+
+[dev-dependencies]
+pretty_assertions = "1"
