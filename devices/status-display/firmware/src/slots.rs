@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 
+use esp_idf_svc::nvs::{EspNvs, EspNvsPartition, NvsDefault};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum MetricKind {
     Numeric,
@@ -60,18 +62,68 @@ impl Default for Slot {
 
 pub const MAX_SLOTS: usize = 6;
 
+const NVS_NAMESPACE: &str = "slots";
+const NVS_BUF_LEN: usize = 256;
+
 pub struct SlotManager {
     slots: [Slot; MAX_SLOTS],
     generation: u32,
+    nvs: Option<EspNvs<NvsDefault>>,
 }
 
 impl SlotManager {
-    pub fn new() -> Self {
-        let slots = core::array::from_fn(|i| Slot {
-            label: format!("Slot {}", i + 1),
-            ..Default::default()
+    pub fn new(nvs_partition: Option<EspNvsPartition<NvsDefault>>) -> Self {
+        let nvs = nvs_partition.and_then(|p| {
+            EspNvs::new(p, NVS_NAMESPACE, true)
+                .map_err(|e| log::error!("NVS open failed: {:?}", e))
+                .ok()
         });
-        Self { slots, generation: 0 }
+
+        let mut mgr = Self {
+            slots: core::array::from_fn(|i| Slot {
+                label: format!("Slot {}", i + 1),
+                ..Default::default()
+            }),
+            generation: 0,
+            nvs,
+        };
+        mgr.load();
+        mgr
+    }
+
+    fn load(&mut self) {
+        let nvs = match &self.nvs {
+            Some(n) => n,
+            None => return,
+        };
+        let mut buf = [0u8; NVS_BUF_LEN];
+        for i in 0..MAX_SLOTS {
+            if let Some(v) = nvs_get(nvs, &nvs_key(i, "eid"), &mut buf) {
+                self.slots[i].entity_id = v;
+            }
+            if let Some(v) = nvs_get(nvs, &nvs_key(i, "lbl"), &mut buf) {
+                self.slots[i].label = v;
+            }
+            if let Some(v) = nvs_get(nvs, &nvs_key(i, "knd"), &mut buf) {
+                self.slots[i].kind = MetricKind::from_str(&v);
+            }
+            if let Some(v) = nvs_get(nvs, &nvs_key(i, "unt"), &mut buf) {
+                self.slots[i].unit = v;
+            }
+            if let Some(v) = nvs_get(nvs, &nvs_key(i, "atr"), &mut buf) {
+                self.slots[i].attribute = v;
+            }
+        }
+        log::info!("Loaded slot config from NVS");
+    }
+
+    fn save_field(&mut self, idx: usize, suffix: &str, val: &str) {
+        if let Some(nvs) = &mut self.nvs {
+            let key = nvs_key(idx, suffix);
+            if let Err(e) = nvs.set_str(&key, val) {
+                log::error!("NVS write {}={}: {:?}", key, val, e);
+            }
+        }
     }
 
     pub fn slot(&self, idx: usize) -> &Slot {
@@ -91,6 +143,7 @@ impl SlotManager {
             self.slots[idx].entity_id = entity_id.to_string();
             self.slots[idx].value.clear();
             self.generation += 1;
+            self.save_field(idx, "eid", entity_id);
         }
     }
 
@@ -98,13 +151,16 @@ impl SlotManager {
         if idx < MAX_SLOTS && self.slots[idx].label != label {
             self.slots[idx].label = label.to_string();
             self.generation += 1;
+            self.save_field(idx, "lbl", label);
         }
     }
 
     pub fn set_kind(&mut self, idx: usize, kind: MetricKind) {
         if idx < MAX_SLOTS && self.slots[idx].kind != kind {
+            let kind_str = kind.as_str();
             self.slots[idx].kind = kind;
             self.generation += 1;
+            self.save_field(idx, "knd", kind_str);
         }
     }
 
@@ -112,6 +168,7 @@ impl SlotManager {
         if idx < MAX_SLOTS && self.slots[idx].unit != unit {
             self.slots[idx].unit = unit.to_string();
             self.generation += 1;
+            self.save_field(idx, "unt", unit);
         }
     }
 
@@ -119,6 +176,7 @@ impl SlotManager {
         if idx < MAX_SLOTS && self.slots[idx].attribute != attr {
             self.slots[idx].attribute = attr.to_string();
             self.generation += 1;
+            self.save_field(idx, "atr", attr);
         }
     }
 
@@ -164,8 +222,19 @@ impl SlotManager {
     }
 }
 
+fn nvs_key(slot: usize, suffix: &str) -> String {
+    format!("s{}_{}", slot, suffix)
+}
+
+fn nvs_get(nvs: &EspNvs<NvsDefault>, key: &str, buf: &mut [u8; NVS_BUF_LEN]) -> Option<String> {
+    match nvs.get_str(key, buf) {
+        Ok(Some(v)) => Some(v.to_string()),
+        _ => None,
+    }
+}
+
 pub type SharedSlots = Arc<Mutex<SlotManager>>;
 
-pub fn new_shared() -> SharedSlots {
-    Arc::new(Mutex::new(SlotManager::new()))
+pub fn new_shared(nvs_partition: Option<EspNvsPartition<NvsDefault>>) -> SharedSlots {
+    Arc::new(Mutex::new(SlotManager::new(nvs_partition)))
 }

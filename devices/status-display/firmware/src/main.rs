@@ -37,6 +37,7 @@ fn main() -> Result<()> {
     let peripherals = Peripherals::take()?;
     let sysloop = EspSystemEventLoop::take()?;
     let nvs_partition = EspDefaultNvsPartition::take()?;
+    let slots_nvs = nvs_partition.clone();
 
     // -- Display --
     let dc = PinDriver::output(peripherals.pins.gpio2)?;
@@ -96,7 +97,7 @@ fn main() -> Result<()> {
 
 
     // -- Slot manager --
-    let shared_slots = slots::new_shared();
+    let shared_slots = slots::new_shared(Some(slots_nvs));
 
     // -- API server thread --
     let api_slots = shared_slots.clone();

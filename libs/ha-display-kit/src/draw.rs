@@ -1,6 +1,6 @@
 use std::fmt::Write as FmtWrite;
 
-use embedded_graphics::mono_font::ascii::{FONT_10X20, FONT_6X13};
+use embedded_graphics::mono_font::iso_8859_1::{FONT_10X20, FONT_6X13};
 use embedded_graphics::mono_font::{MonoTextStyle, MonoTextStyleBuilder};
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::*;

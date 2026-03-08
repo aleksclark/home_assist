@@ -33,7 +33,8 @@ const MSG_LIST_ENTITIES_DONE: u32 = 19;
 const MSG_SUBSCRIBE_STATES_REQ: u32 = 20;
 const MSG_SENSOR_STATE_RESP: u32 = 25;
 const MSG_TEXT_SENSOR_STATE_RESP: u32 = 27;
-const MSG_SUBSCRIBE_HA_STATES_REQ: u32 = 38;
+const MSG_SUBSCRIBE_HA_STATES_REQ: u32 = 34;
+const MSG_GET_HA_STATES_REQ: u32 = 38;
 const MSG_SUBSCRIBE_HA_STATE_RESP: u32 = 39;
 const MSG_HA_STATE_RESP: u32 = 40;
 const MSG_LIST_ENTITIES_SELECT_RESP: u32 = 52;
@@ -144,6 +145,9 @@ fn handle_client(mut stream: TcpStream, slots: SharedSlots, mac: &str) -> Result
                 MSG_SUBSCRIBE_HA_STATES_REQ => {
                     send_ha_subscriptions(&mut stream, &slots)?;
                 }
+                MSG_GET_HA_STATES_REQ => {
+                    send_ha_subscriptions(&mut stream, &slots)?;
+                }
                 MSG_HA_STATE_RESP => {
                     handle_ha_state(&payload, &slots);
                     if subscribed_states {
@@ -213,7 +217,7 @@ fn build_device_info(mac: &str) -> Vec<u8> {
     encode_field_string(5, "", &mut buf);
     encode_field_string(6, MODEL, &mut buf);
     encode_field_bool(7, false, &mut buf);
-    encode_field_string(8, "status-display", &mut buf);
+    encode_field_string(8, "resphome.status-display", &mut buf);
     encode_field_string(9, "0.2.0", &mut buf);
     encode_field_varint(10, 0, &mut buf);
     encode_field_string(12, MANUFACTURER, &mut buf);
