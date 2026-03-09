@@ -1,0 +1,21 @@
+# ESPHome
+esphome/.esphome/
+esphome/secrets.yaml
+
+# Rust / ESP-IDF
+target/
+.embuild/
+
+# Build artifacts
+*.pyc
+__pycache__/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/

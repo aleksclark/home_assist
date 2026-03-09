@@ -1,0 +1,11 @@
+[package]
+name = "ha-display-kit"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Layout, theming, and incremental-redraw toolkit for embedded-graphics displays"
+
+[dependencies]
+embedded-graphics = "0.8"
+anyhow = "1"
+log = "0.4"

@@ -1,0 +1,10 @@
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  platform: esphome
+  password: !secret ota_password

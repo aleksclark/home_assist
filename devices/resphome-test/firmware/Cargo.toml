@@ -1,0 +1,23 @@
+[package]
+name = "resphome-example"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+
+[profile.release]
+opt-level = "s"
+
+[profile.dev]
+debug = true
+opt-level = "z"
+
+[dependencies]
+resphome = { path = "../../../libs/resphome", features = ["esp32"] }
+esp-idf-hal = "0.45"
+esp-idf-svc = { version = "0.51", features = ["std"] }
+esp-idf-sys = { version = "0.36", features = ["binstart"] }
+anyhow = "1"
+log = "0.4"
+
+[build-dependencies]
+embuild = "0.33"
