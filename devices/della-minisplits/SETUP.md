@@ -6,15 +6,78 @@ Della mini split AC units with built-in WiFi use the **TCL protocol**, NOT TuyaM
 
 ## Hardware
 
+- **Module:** WBR1 (Tuya-based, RTL8720C / AmebaZ2)
 - **Chip:** RTL87x0C (Realtek)
 - **Protocol:** TCL (serial communication with AC MCU)
 - **Default Device Name:** `rtl87x0C0D1773DB` (based on MAC address)
 
+## Flashing OpenBeken
+
+### Prerequisites
+
+- USB-to-UART adapter (3.3V logic)
+- `ltchiptool` (`pip install ltchiptool`)
+- OpenBeken firmware: `OpenRTL87X0C_*.bin` (in `tools/firmware/`)
+- Separate 3.3V power supply recommended (the UART adapter's regulator may brown out during flash operations)
+
+### WBR1 Wiring
+
+```
+--------+        +---------------------
+     PC |        | WBR1 (RTL8720C)
+--------+        +---------------------
+     RX | ------ | TX2 (Log_TX / PA16)
+     TX | ------ | RX2 (Log_RX / PA15)
+        |        |
+    GND | ------ | GND
+--------+        +---------------------
+```
+
+### Entering Download Mode
+
+The WBR1 uses **PA00** as the download mode strapping pin. To enter download mode:
+
+1. Pull **PA00 HIGH (3.3V)** — this is the opposite of ESP32/ESP8266 where you pull GPIO0 low
+2. Ensure **PA13 (RX0) is NOT pulled to GND**
+3. Power-cycle the module (or briefly short CEN to GND then release)
+4. The chip should now be in download mode
+
+> **WARNING:** The WBR1 module has multiple pads that can be confused for PA00.
+> Consult the WBR1 datasheet/pinout diagram and verify you are pulling the
+> **correct** pin high. Pulling the wrong pin will cause the chip to boot
+> normally or hang, and `ltchiptool` will report "Timeout while linking".
+> If you see boot log output (`== Rtl8710c IoT Platform ==`) on the serial
+> console, the chip is NOT in download mode.
+
+### Flash Commands
+
+```bash
+# Backup existing firmware (recommended)
+ltchiptool flash read -d /dev/ttyUSB0 ambz2 backup_wbr1.bin
+
+# Flash OpenBeken
+ltchiptool flash write -d /dev/ttyUSB0 tools/firmware/OpenRTL87X0C_1.18.236.bin
+```
+
+After flashing, remove the PA00 pull-up and power-cycle to boot normally.
+
+### Troubleshooting Flashing
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "Timeout while linking" | Wrong pin pulled high, or not in download mode | Verify PA00 is correct pin per WBR1 pinout diagram |
+| Boot log on serial (`== Rtl8710c ==`) | PA00 not pulled high | Pull PA00 to 3.3V before powering on |
+| `[SPIF Err]Invalid ID` in boot log | Normal — ROM doesn't recognize flash JEDEC ID, but flashing still works | Ignore and proceed with ltchiptool |
+| I/O errors / adapter disconnects | USB-UART adapter can't supply enough current | Use separate 3.3V PSU for the module |
+| `OSError: Device or resource busy` | Another process (e.g., `screen`) has the port open | Close other serial connections first |
+
 ## OpenBeken Configuration
 
-### 1. Flash OpenBeken
+### 1. Configure WiFi
 
-Flash the module with OpenBeken firmware. The module should be accessible at its IP address after connecting to WiFi.
+After flashing, the module starts a WiFi AP named `OpenBeken_XXXXXX` (since no WiFi credentials are configured yet). Connect to this AP from your phone or laptop, then open the web interface at `http://192.168.4.1` to enter your home WiFi SSID and password. Once saved, the module reboots and connects to your network. If the module ever loses its configured network (e.g., credentials change), it will fall back to broadcasting the AP again so you can reconfigure.
+
+### 2. Start TCL Driver
 
 ### 2. Start TCL Driver
 
@@ -79,8 +142,8 @@ Add to `configuration.yaml`:
 ```yaml
 mqtt:
   climate:
-    - name: "Della Mini Split"
-      unique_id: "della_mini_split_ac"
+    - name: "Livingroom AC"
+      unique_id: "livingroom_ac"
       temperature_unit: C
       modes:
         - "off"
@@ -108,25 +171,71 @@ mqtt:
         - "fix_mid"
         - "fix_lower"
         - "fix_bottom"
-      mode_command_topic: "cmnd/<device>/ACMode"
-      mode_state_topic: "<device>/ACMode/get"
+      mode_command_topic: "cmnd/<livingroom_device>/ACMode"
+      mode_state_topic: "<livingroom_device>/ACMode/get"
       mode_state_template: "{{ value if value != 'fan' else 'fan_only' }}"
-      temperature_command_topic: "cmnd/<device>/TargetTemperature"
-      temperature_state_topic: "<device>/TargetTemperature/get"
-      current_temperature_topic: "<device>/CurrentTemperature/get"
-      fan_mode_command_topic: "cmnd/<device>/FANMode"
-      fan_mode_state_topic: "<device>/FANMode/get"
-      swing_mode_command_topic: "cmnd/<device>/SwingV"
-      swing_mode_state_topic: "<device>/SwingV/get"
+      temperature_command_topic: "cmnd/<livingroom_device>/TargetTemperature"
+      temperature_state_topic: "<livingroom_device>/TargetTemperature/get"
+      current_temperature_topic: "<livingroom_device>/CurrentTemperature/get"
+      fan_mode_command_topic: "cmnd/<livingroom_device>/FANMode"
+      fan_mode_state_topic: "<livingroom_device>/FANMode/get"
+      swing_mode_command_topic: "cmnd/<livingroom_device>/SwingV"
+      swing_mode_state_topic: "<livingroom_device>/SwingV/get"
       min_temp: 16
       max_temp: 30
       temp_step: 1
-      availability_topic: "<device>/connected"
+      availability_topic: "<livingroom_device>/connected"
+      payload_available: "online"
+      payload_not_available: "offline"
+
+    - name: "Kitchen AC"
+      unique_id: "kitchen_ac"
+      temperature_unit: C
+      modes:
+        - "off"
+        - "cool"
+        - "heat"
+        - "dry"
+        - "fan_only"
+        - "auto"
+      fan_modes:
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"
+        - "mute"
+        - "turbo"
+        - "auto"
+      swing_modes:
+        - "none"
+        - "move_full"
+        - "move_upper"
+        - "move_lower"
+        - "fix_top"
+        - "fix_upper"
+        - "fix_mid"
+        - "fix_lower"
+        - "fix_bottom"
+      mode_command_topic: "cmnd/<kitchen_device>/ACMode"
+      mode_state_topic: "<kitchen_device>/ACMode/get"
+      mode_state_template: "{{ value if value != 'fan' else 'fan_only' }}"
+      temperature_command_topic: "cmnd/<kitchen_device>/TargetTemperature"
+      temperature_state_topic: "<kitchen_device>/TargetTemperature/get"
+      current_temperature_topic: "<kitchen_device>/CurrentTemperature/get"
+      fan_mode_command_topic: "cmnd/<kitchen_device>/FANMode"
+      fan_mode_state_topic: "<kitchen_device>/FANMode/get"
+      swing_mode_command_topic: "cmnd/<kitchen_device>/SwingV"
+      swing_mode_state_topic: "<kitchen_device>/SwingV/get"
+      min_temp: 16
+      max_temp: 30
+      temp_step: 1
+      availability_topic: "<kitchen_device>/connected"
       payload_available: "online"
       payload_not_available: "offline"
 ```
 
-Replace `<device>` with the actual device name (e.g., `rtl87x0C0D1773DB`).
+Replace `<livingroom_device>` and `<kitchen_device>` with the actual OpenBeken device names (e.g., `rtl87x0C0D1773DB`). These are typically based on the module's MAC address and visible on the OpenBeken web interface.
 
 ## Important Notes
 
