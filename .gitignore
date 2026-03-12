@@ -1,6 +1,6 @@
 # ESPHome
-esphome/.esphome/
-esphome/secrets.yaml
+.esphome/
+**/secrets.yaml
 
 # Rust / ESP-IDF
 target/

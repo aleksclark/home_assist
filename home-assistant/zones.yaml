@@ -1,0 +1,184 @@
+# House Zone Topology
+# Used by AI agents to reason about HVAC control across mixed systems.
+# See AGENTS.md for context.
+
+house:
+  zones:
+    - id: livingroom
+      floor: 1
+      area_sqft: 192
+      insulation: low
+      sun_exposure: [east, south] # e.g. [south, west]
+      adjacent_to: [kitchen, amos_bedroom]
+      thermal_coupling:
+        kitchen: medium
+        exterior: medium
+      hvac_devices:
+        - id: della_livingroom
+          type: minisplit
+          protocol: mqtt
+          mqtt_prefix: minisplit_livingroom
+          capabilities: [heat, cool, dry, fan_only, auto]
+          fan_modes: ["1", "2", "3", "4", "5", mute, turbo, auto]
+          temp_range_c: [16, 30]
+          btu: 12_000
+          entity_id: climate.livingroom_ac
+      sensors:
+        # - id: therm_livingroom
+        #   type: ble_thermometer
+        #   model: miaomiaoce.sensor_ht.t2
+        #   mac: ~ # no sensor currently assigned to this room
+        #   entity_id: ~
+
+    - id: kitchen
+      floor: 1
+      area_sqft: 504
+      insulation: low
+      sun_exposure: [south, west]
+      adjacent_to: [livingroom, green_room]
+      thermal_coupling:
+        livingroom: medium
+        green_room: high
+        exterior: high
+      hvac_devices:
+        - id: della_kitchen
+          type: minisplit
+          protocol: mqtt
+          mqtt_prefix: minisplit_kitchen
+          capabilities: [heat, cool, dry, fan_only, auto]
+          fan_modes: ["1", "2", "3", "4", "5", mute, turbo, auto]
+          temp_range_c: [16, 30]
+          btu: 18_000
+          entity_id: climate.kitchen_ac
+      sensors:
+        - id: therm_kitchen
+          type: ble_thermometer
+          model: miaomiaoce.sensor_ht.t2
+          mac: "A4:C1:38:70:44:3C"
+          entity_id: sensor.kitchen_temperature
+
+    - id: green_room
+      floor: 1
+      area_sqft: 120
+      insulation: high
+      sun_exposure: []
+      adjacent_to: [hallway, kitchen, amos_bedroom, girls_bathroom]
+      thermal_coupling:
+        hallway: high
+        kitchen: high
+        amos_bedroom: medium
+        girls_bathroom: low
+      hvac_devices: [] # TODO: add if unit exists
+      sensors: []
+
+    - id: amos_bedroom
+      floor: 1
+      area_sqft: 210
+      insulation: medium
+      sun_exposure: [east]
+      adjacent_to: [hallway, green_room, livingroom, ak_bedroom]
+      thermal_coupling:
+        hallway: medium
+        exterior: low
+        livingroom: medium
+        ak_bedroom: low
+      hvac_devices:
+        - id: della_amos
+          type: minisplit
+          protocol: mqtt
+          mqtt_prefix: minisplit_amos
+          capabilities: [heat, cool, dry, fan_only, auto]
+          fan_modes: ["1", "2", "3", "4", "5", mute, turbo, auto]
+          temp_range_c: [16, 30]
+          btu: 9_000
+          entity_id: climate.amos_bedroom_ac
+      sensors:
+        - id: therm_amos
+          type: ble_thermometer
+          model: miaomiaoce.sensor_ht.t2
+          mac: "A4:C1:38:A3:77:5D"
+          entity_id: sensor.amos_temperature
+
+    - id: hallway
+      floor: 1
+      area_sqft: 53
+      insulation: high
+      sun_exposure: []
+      adjacent_to:
+        [green_room, amos_bedroom, girls_bedroom, girls_bathroom, ak_bedroom]
+      thermal_coupling:
+        green_room: high
+        amos_bedroom: medium
+        ak_bedroom: high
+        girls_bathroom: low
+        exterior: low
+      hvac_devices: [] # served by central system
+      sensors: []
+
+    - id: ak_bedroom
+      floor: 1
+      area_sqft: 210
+      insulation: medium
+      sun_exposure: []
+      adjacent_to: [hallway, girls_bedroom, amos_bedroom]
+      thermal_coupling:
+        hallway: high
+        girls_bedroom: low
+        amos_bedroom: low
+        exterior: low
+      hvac_devices: []
+      sensors: []
+
+    - id: girls_bedroom
+      floor: 1
+      area_sqft: 550
+      insulation: medium
+      sun_exposure: []
+      adjacent_to: [hallway, girls_bathroom, ak_bedroom]
+      thermal_coupling:
+        hallway: medium
+        girls_bathroom: medium
+        exterior: medium
+        ak_bedroom: low
+      hvac_devices: [] # TODO: add if unit exists
+      sensors: []
+
+    - id: girls_bathroom
+      floor: 1
+      area_sqft: 120
+      insulation: medium
+      sun_exposure: []
+      adjacent_to: [hallway, girls_bedroom]
+      thermal_coupling:
+        hallway: low
+        girls_bedroom: medium
+        exterior: low
+      hvac_devices: []
+      sensors: []
+
+  shared_systems:
+    - id: central_ac
+      type: central
+      capabilities: [heat, cool, fan]
+      btu: 30_000
+      serves_zones: [hallway, girls_bedroom, girls_bathroom, ak_bedroom]
+      thermostat:
+        location: hallway
+        id: ecobee_main
+        model: ECB701
+        entity_id: climate.my_ecobee_2
+
+  schedule:
+    occupied:
+      amos_bedroom: { daily: "15:00-20:00" }
+      girls_bedroom: { daily: "16:00-22:00" }
+      ak_bedroom: { daily: "05:00-21:00" }
+      kitchen: { daily: "05:00-21:00" }
+    sleep:
+      amos_bedroom: { daily: "20:00-05:00" }
+      girls_bedroom: { daily: "22:00-05:00" }
+      ak_bedroom: { daily: "21:00-05:00" }
+    comfort_targets:
+      occupied: { heat_f: 67, cool_f: 75 }
+      unoccupied: { heat_f: 62, cool_f: 82 }
+      sleep: { heat_f: 60, cool_f: 68 }

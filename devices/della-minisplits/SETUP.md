@@ -233,9 +233,55 @@ mqtt:
       availability_topic: "<kitchen_device>/connected"
       payload_available: "online"
       payload_not_available: "offline"
+
+    - name: "Amos Bedroom AC"
+      unique_id: "amos_bedroom_ac"
+      temperature_unit: C
+      modes:
+        - "off"
+        - "cool"
+        - "heat"
+        - "dry"
+        - "fan_only"
+        - "auto"
+      fan_modes:
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"
+        - "mute"
+        - "turbo"
+        - "auto"
+      swing_modes:
+        - "none"
+        - "move_full"
+        - "move_upper"
+        - "move_lower"
+        - "fix_top"
+        - "fix_upper"
+        - "fix_mid"
+        - "fix_lower"
+        - "fix_bottom"
+      mode_command_topic: "cmnd/<amos_bedroom_device>/ACMode"
+      mode_state_topic: "<amos_bedroom_device>/ACMode/get"
+      mode_state_template: "{{ value if value != 'fan' else 'fan_only' }}"
+      temperature_command_topic: "cmnd/<amos_bedroom_device>/TargetTemperature"
+      temperature_state_topic: "<amos_bedroom_device>/TargetTemperature/get"
+      current_temperature_topic: "<amos_bedroom_device>/CurrentTemperature/get"
+      fan_mode_command_topic: "cmnd/<amos_bedroom_device>/FANMode"
+      fan_mode_state_topic: "<amos_bedroom_device>/FANMode/get"
+      swing_mode_command_topic: "cmnd/<amos_bedroom_device>/SwingV"
+      swing_mode_state_topic: "<amos_bedroom_device>/SwingV/get"
+      min_temp: 16
+      max_temp: 30
+      temp_step: 1
+      availability_topic: "<amos_bedroom_device>/connected"
+      payload_available: "online"
+      payload_not_available: "offline"
 ```
 
-Replace `<livingroom_device>` and `<kitchen_device>` with the actual OpenBeken device names (e.g., `rtl87x0C0D1773DB`). These are typically based on the module's MAC address and visible on the OpenBeken web interface.
+Replace `<livingroom_device>`, `<kitchen_device>`, and `<amos_bedroom_device>` with the actual OpenBeken device names (e.g., `rtl87x0C0D1773DB`). These are typically based on the module's MAC address and visible on the OpenBeken web interface.
 
 ## Important Notes
 
