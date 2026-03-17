@@ -1,0 +1,78 @@
+# ---------------------------------------------------------------------------
+# Input helpers for HVAC zone control
+# Add to configuration.yaml:
+#   input_boolean: !include input_helpers.yaml  (input_boolean section)
+#   input_select: !include input_helpers_select.yaml
+#
+# Or paste the relevant sections into your existing configuration.yaml
+# ---------------------------------------------------------------------------
+
+# --- input_boolean ---
+input_boolean:
+  hvac_master_enable:
+    name: HVAC Master Enable
+    icon: mdi:hvac
+
+  hvac_season_cool:
+    name: HVAC Season - Cooling
+    icon: mdi:snowflake
+
+  hvac_season_heat:
+    name: HVAC Season - Heating
+    icon: mdi:fire
+
+# --- input_number ---
+input_number:
+  hvac_occupied_heat_f:
+    name: Occupied Heat Target (F)
+    min: 55
+    max: 80
+    step: 1
+    initial: 67
+    unit_of_measurement: "°F"
+    icon: mdi:thermometer-chevron-up
+
+  hvac_occupied_cool_f:
+    name: Occupied Cool Target (F)
+    min: 65
+    max: 85
+    step: 1
+    initial: 75
+    unit_of_measurement: "°F"
+    icon: mdi:thermometer-chevron-down
+
+  hvac_sleep_heat_f:
+    name: Sleep Heat Target (F)
+    min: 55
+    max: 75
+    step: 1
+    initial: 60
+    unit_of_measurement: "°F"
+    icon: mdi:thermometer-chevron-up
+
+  hvac_sleep_cool_f:
+    name: Sleep Cool Target (F)
+    min: 60
+    max: 80
+    step: 1
+    initial: 68
+    unit_of_measurement: "°F"
+    icon: mdi:thermometer-chevron-down
+
+  hvac_unoccupied_heat_f:
+    name: Unoccupied Heat Target (F)
+    min: 50
+    max: 75
+    step: 1
+    initial: 62
+    unit_of_measurement: "°F"
+    icon: mdi:thermometer-chevron-up
+
+  hvac_unoccupied_cool_f:
+    name: Unoccupied Cool Target (F)
+    min: 70
+    max: 90
+    step: 1
+    initial: 82
+    unit_of_measurement: "°F"
+    icon: mdi:thermometer-chevron-down

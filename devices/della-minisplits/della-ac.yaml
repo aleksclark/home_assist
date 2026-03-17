@@ -1,0 +1,49 @@
+esphome:
+  name: della-ac
+  friendly_name: "Della Mini Split"
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: components
+
+packages:
+  wifi: !include ../../esphome/common/wifi_stable.yaml
+
+logger:
+  level: DEBUG
+  baud_rate: 0
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  platform: esphome
+  password: !secret ota_password
+
+uart:
+  id: ac_uart
+  tx_pin: GPIO21
+  rx_pin: GPIO20
+  baud_rate: 9600
+
+climate:
+  - platform: tcl_climate
+    id: della_ac
+    name: "Della AC"
+    uart_id: ac_uart
+    update_interval: 500ms
+    vertical_swing:
+      name: "Della Vertical Swing"
+    horizontal_swing:
+      name: "Della Horizontal Swing"
+    buzzer:
+      name: "Della Buzzer"
+    display:
+      name: "Della Display"

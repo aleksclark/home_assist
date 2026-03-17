@@ -1,0 +1,9 @@
+# ESPHome
+/.esphome/
+/secrets.yaml
+
+# KiCad
+*-backups/
+_autosave-*
+~*
+\#*\#

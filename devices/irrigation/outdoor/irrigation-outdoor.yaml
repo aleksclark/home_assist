@@ -1,0 +1,208 @@
+esphome:
+  name: irrigation-outdoor
+  friendly_name: Outdoor Irrigation Controller
+  includes:
+    - <esp_wifi.h>
+  on_boot:
+    - priority: 300
+      then:
+        lambda: |-
+          esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B|WIFI_PROTOCOL_11G);
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+packages:
+  base: !include ../../../esphome/common/base.yaml
+
+wifi:
+  id: wifi_id
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none
+  enable_on_boot: true
+  fast_connect: true
+  output_power: 8.5
+
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+  scan: true
+
+# --- Soil Moisture Sensors (ADC) ---
+sensor:
+  - platform: adc
+    pin: GPIO0
+    name: "Zone 1 Moisture"
+    id: moisture_zone_1
+    update_interval: 1s
+    attenuation: 12db
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    filters:
+      - calibrate_linear:
+          - 2.85 -> 0.0
+          - 1.28 -> 100.0
+      - clamp:
+          min_value: 0
+          max_value: 100
+
+  - platform: adc
+    pin: GPIO1
+    name: "Zone 2 Moisture"
+    id: moisture_zone_2
+    update_interval: 1s
+    attenuation: 12db
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    filters:
+      - calibrate_linear:
+          - 2.85 -> 0.0
+          - 1.28 -> 100.0
+      - clamp:
+          min_value: 0
+          max_value: 100
+
+  - platform: adc
+    pin: GPIO2
+    name: "Zone 3 Moisture"
+    id: moisture_zone_3
+    update_interval: 1s
+    attenuation: 12db
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    filters:
+      - calibrate_linear:
+          - 2.85 -> 0.0
+          - 1.28 -> 100.0
+      - clamp:
+          min_value: 0
+          max_value: 100
+
+  - platform: adc
+    pin: GPIO3
+    name: "Zone 4 Moisture"
+    id: moisture_zone_4
+    update_interval: 1s
+    attenuation: 12db
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    filters:
+      - calibrate_linear:
+          - 2.85 -> 0.0
+          - 1.28 -> 100.0
+      - clamp:
+          min_value: 0
+          max_value: 100
+
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+  - platform: uptime
+    name: "Uptime"
+
+# --- Solenoid Valve Relays ---
+switch:
+  - platform: gpio
+    pin:
+      number: GPI10
+      inverted: false
+    name: "Zone 1 Valve"
+    id: valve_zone_1
+    icon: mdi:water
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin:
+      number: GPIO07
+      inverted: false
+    name: "Zone 2 Valve"
+    id: valve_zone_2
+    icon: mdi:water
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin:
+      number: GPIO6
+      inverted: false
+    name: "Zone 3 Valve"
+    id: valve_zone_3
+    icon: mdi:water
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin:
+      number: GPIO19
+      inverted: false
+    name: "Zone 4 Valve"
+    id: valve_zone_4
+    icon: mdi:water
+    restore_mode: ALWAYS_OFF
+
+# --- OLED Display ---
+font:
+  - file: "gfonts://Roboto"
+    id: font_header
+    size: 12
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz :"
+  - file: "gfonts://Roboto@700"
+    id: font_humidity
+    size: 11
+    glyphs: "0123456789.%Na "
+  - file: "gfonts://Roboto"
+    id: font_label
+    size: 9
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 :/"
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    id: oled_display
+    update_interval: 2s
+    lambda: |-
+      // --- Yellow header bar (y 0-15) ---
+      it.printf(0, 2, id(font_header), "IRRIGATION");
+      // wifi + ha status on the right
+      it.printf(78, 2, id(font_label), "w:%s", id(wifi_id).is_connected() ? "OK" : "ER");
+      it.printf(106, 2, id(font_label), "h:%s", id(ha_connected).state ? "OK" : "ER");
+
+      // --- Blue zone (y 16-63, 48px tall) ---
+      // Divider lines: vertical center, horizontal center
+      it.vertical_line(64, 16, 48);
+      it.horizontal_line(0, 40, 128);
+
+      // Quadrant positions (each 64w x 24h):
+      //   Z1: x=0..63,  y=16..39
+      //   Z2: x=64..127, y=16..39
+      //   Z3: x=0..63,  y=40..63
+      //   Z4: x=64..127, y=40..63
+
+      // Zone 1 (top-left)
+      it.printf(32, 16, id(font_humidity), TextAlign::TOP_CENTER, "%.0f%%", id(moisture_zone_1).state);
+      it.printf(32, 39, id(font_label), TextAlign::BASELINE_CENTER, "%s", id(valve_zone_1).state ? "Water: ON" : "Water: off");
+
+      // Zone 2 (top-right)
+      it.printf(96, 16, id(font_humidity), TextAlign::TOP_CENTER, "%.0f%%", id(moisture_zone_2).state);
+      it.printf(96, 39, id(font_label), TextAlign::BASELINE_CENTER, "%s", id(valve_zone_2).state ? "Water: ON" : "Water: off");
+
+      // Zone 3 (bottom-left)
+      it.printf(32, 40, id(font_humidity), TextAlign::TOP_CENTER, "%.0f%%", id(moisture_zone_3).state);
+      it.printf(32, 63, id(font_label), TextAlign::BASELINE_CENTER, "%s", id(valve_zone_3).state ? "Water: ON" : "Water: off");
+
+      // Zone 4 (bottom-right)
+      it.printf(96, 40, id(font_humidity), TextAlign::TOP_CENTER, "%.0f%%", id(moisture_zone_4).state);
+      it.printf(96, 63, id(font_label), TextAlign::BASELINE_CENTER, "%s", id(valve_zone_4).state ? "Water: ON" : "Water: off");
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+    id: ha_connected
