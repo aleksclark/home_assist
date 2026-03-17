@@ -27,8 +27,8 @@ wifi:
   output_power: 8.5
 
 i2c:
-  sda: GPIO5
-  scl: GPIO6
+  sda: GPIO4
+  scl: GPIO5
   scan: true
 
 # --- Soil Moisture Sensors (ADC) ---
@@ -37,7 +37,7 @@ sensor:
     pin: GPIO0
     name: "Zone 1 Moisture"
     id: moisture_zone_1
-    update_interval: 30s
+    update_interval: 1s
     attenuation: 12db
     unit_of_measurement: "%"
     accuracy_decimals: 0
@@ -53,7 +53,23 @@ sensor:
     pin: GPIO1
     name: "Zone 2 Moisture"
     id: moisture_zone_2
-    update_interval: 30s
+    update_interval: 1s
+    attenuation: 12db
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    filters:
+      - calibrate_linear:
+          - 2.85 -> 0.0
+          - 1.28 -> 100.0
+      - clamp:
+          min_value: 0
+          max_value: 100
+
+  - platform: adc
+    pin: GPIO2
+    name: "Zone 3 Moisture"
+    id: moisture_zone_3
+    update_interval: 1s
     attenuation: 12db
     unit_of_measurement: "%"
     accuracy_decimals: 0
@@ -67,25 +83,9 @@ sensor:
 
   - platform: adc
     pin: GPIO3
-    name: "Zone 3 Moisture"
-    id: moisture_zone_3
-    update_interval: 30s
-    attenuation: 12db
-    unit_of_measurement: "%"
-    accuracy_decimals: 0
-    filters:
-      - calibrate_linear:
-          - 2.85 -> 0.0
-          - 1.28 -> 100.0
-      - clamp:
-          min_value: 0
-          max_value: 100
-
-  - platform: adc
-    pin: GPIO4
     name: "Zone 4 Moisture"
     id: moisture_zone_4
-    update_interval: 30s
+    update_interval: 1s
     attenuation: 12db
     unit_of_measurement: "%"
     accuracy_decimals: 0
@@ -108,7 +108,7 @@ sensor:
 switch:
   - platform: gpio
     pin:
-      number: GPIO7
+      number: GPI10
       inverted: false
     name: "Zone 1 Valve"
     id: valve_zone_1
@@ -117,7 +117,7 @@ switch:
 
   - platform: gpio
     pin:
-      number: GPIO10
+      number: GPIO07
       inverted: false
     name: "Zone 2 Valve"
     id: valve_zone_2
@@ -126,7 +126,7 @@ switch:
 
   - platform: gpio
     pin:
-      number: GPIO20
+      number: GPIO6
       inverted: false
     name: "Zone 3 Valve"
     id: valve_zone_3
@@ -135,7 +135,7 @@ switch:
 
   - platform: gpio
     pin:
-      number: GPIO21
+      number: GPIO19
       inverted: false
     name: "Zone 4 Valve"
     id: valve_zone_4
@@ -147,15 +147,15 @@ font:
   - file: "gfonts://Roboto"
     id: font_header
     size: 12
-    glyphs: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz :'
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz :"
   - file: "gfonts://Roboto@700"
     id: font_humidity
     size: 11
-    glyphs: '0123456789.%Na '
+    glyphs: "0123456789.%Na "
   - file: "gfonts://Roboto"
     id: font_label
     size: 9
-    glyphs: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 :/'
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 :/"
 
 display:
   - platform: ssd1306_i2c
