@@ -1,0 +1,102 @@
+# ---------------------------------------------------------------------------
+# Seedling Irrigation Automations
+# ---------------------------------------------------------------------------
+# Moisture-driven irrigation for the outdoor seedling controller.
+# Deployed via MCP save_automation API — this file is a reference copy.
+#
+# Device: Seedling Irrigation (ESP32-C3 via ESPHome)
+#   4 valves (valve 1 non-functional), 4 moisture sensors
+#
+# Zone-to-valve mapping:
+#   Zone 3         → Valve 3 only
+#   Zones 1, 2, 4  → Valves 2 + 4 (both open together)
+#
+# Logic:
+#   Trigger when ANY zone moisture drops below 70%.
+#   Open valve(s) for 30 seconds, close, wait 15 minutes.
+#   Repeat until ALL relevant zones reach 90% moisture.
+#   Mode: single (won't re-trigger while already running).
+# ---------------------------------------------------------------------------
+
+# ===========================================================================
+#  ZONE 3 — valve 3
+# ===========================================================================
+
+- alias: "Irrigation Zone 3 - Moisture Control"
+  id: irrigation_zone3_moisture
+  description: >
+    When zone 3 moisture drops to 70%, irrigate with valve 3 for 30s,
+    wait 15min, repeat until moisture reaches 90%.
+  mode: single
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.outdoor_irrigation_controller_zone_3_moisture
+      below: 70
+  actions:
+    - repeat:
+        while:
+          - condition: numeric_state
+            entity_id: sensor.outdoor_irrigation_controller_zone_3_moisture
+            below: 90
+        sequence:
+          - action: switch.turn_on
+            target:
+              entity_id: switch.outdoor_irrigation_controller_zone_3_valve
+          - delay:
+              seconds: 30
+          - action: switch.turn_off
+            target:
+              entity_id: switch.outdoor_irrigation_controller_zone_3_valve
+          - delay:
+              minutes: 15
+
+# ===========================================================================
+#  ZONES 1, 2, 4 — valves 2 + 4
+# ===========================================================================
+
+- alias: "Irrigation Zones 1,2,4 - Moisture Control"
+  id: irrigation_zones124_moisture
+  description: >
+    When any of zones 1, 2, or 4 moisture drops to 70%, irrigate with
+    valves 2+4 for 30s, wait 15min, repeat until ALL of zones 1, 2, and 4
+    reach 90%. Valve 1 is non-functional.
+  mode: single
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.outdoor_irrigation_controller_zone_1_moisture
+      below: 70
+    - trigger: numeric_state
+      entity_id: sensor.outdoor_irrigation_controller_zone_2_moisture
+      below: 70
+    - trigger: numeric_state
+      entity_id: sensor.outdoor_irrigation_controller_zone_4_moisture
+      below: 70
+  actions:
+    - repeat:
+        while:
+          - condition: or
+            conditions:
+              - condition: numeric_state
+                entity_id: sensor.outdoor_irrigation_controller_zone_1_moisture
+                below: 90
+              - condition: numeric_state
+                entity_id: sensor.outdoor_irrigation_controller_zone_2_moisture
+                below: 90
+              - condition: numeric_state
+                entity_id: sensor.outdoor_irrigation_controller_zone_4_moisture
+                below: 90
+        sequence:
+          - action: switch.turn_on
+            target:
+              entity_id:
+                - switch.outdoor_irrigation_controller_zone_2_valve
+                - switch.outdoor_irrigation_controller_zone_4_valve
+          - delay:
+              seconds: 30
+          - action: switch.turn_off
+            target:
+              entity_id:
+                - switch.outdoor_irrigation_controller_zone_2_valve
+                - switch.outdoor_irrigation_controller_zone_4_valve
+          - delay:
+              minutes: 15

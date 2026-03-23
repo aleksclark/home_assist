@@ -39,8 +39,7 @@ setup/
 │   │   ├── README.md
 │   │   └── SETUP.md                # full flashing & config guide
 │   │
-│   ├── ecobee/                     # Ecobee thermostat (WIP)
-│   │   └── README.md
+│   ├── central_air/                     # docs on central air unit
 │   │
 │   ├── status-display/             # ESP32-2432S028 TFT display node (planned)
 │   │   └── README.md

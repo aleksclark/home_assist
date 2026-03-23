@@ -1,0 +1,177 @@
+disable_bermuda_entities:
+  alias: Disable Bermuda Entities
+  sequence:
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_global_total_proxy_count
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_global_active_proxy_count
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_global_total_device_count
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_global_visible_device_count
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_4c_63_6b_1d_47_ea_area
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_4c_63_6b_1d_47_ea_distance
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.bermuda_4c_63_6b_1d_47_ea_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: number.bermuda_4c_63_6b_1d_47_ea_calibration_ref_power_at_1m_0_for_default
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_c1_55_ac_e7_93_68_area
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_c1_55_ac_e7_93_68_distance
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.bermuda_c1_55_ac_e7_93_68_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: number.bermuda_c1_55_ac_e7_93_68_calibration_ref_power_at_1m_0_for_default
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_d5_7c_0b_2e_13_88_area
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_d5_7c_0b_2e_13_88_distance
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_d5_7c_0b_2e_13_88_area_last_seen
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.bermuda_d5_7c_0b_2e_13_88_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: number.bermuda_d5_7c_0b_2e_13_88_calibration_ref_power_at_1m_0_for_default
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_7c_9f_d6_33_00_af_area
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_7c_9f_d6_33_00_af_distance
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.bermuda_7c_9f_d6_33_00_af_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: number.bermuda_7c_9f_d6_33_00_af_calibration_ref_power_at_1m_0_for_default
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_3c_c9_92_a0_58_e8_area
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_3c_c9_92_a0_58_e8_distance
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.bermuda_3c_c9_92_a0_58_e8_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: number.bermuda_3c_c9_92_a0_58_e8_calibration_ref_power_at_1m_0_for_default
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.1ca92e23f0874df7b9a2fd4b716a4bf6_61495_0_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.hp_inc_48_9e_bd_96_ce_34_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_b0_b1_13_93_f5_6f_area
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_b0_b1_13_93_f5_6f_distance
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.bermuda_b0_b1_13_93_f5_6f_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: number.bermuda_b0_b1_13_93_f5_6f_calibration_ref_power_at_1m_0_for_default
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_66_92_31_6b_af_23_area
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_66_92_31_6b_af_23_distance
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.bermuda_66_92_31_6b_af_23_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: number.bermuda_66_92_31_6b_af_23_calibration_ref_power_at_1m_0_for_default
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_47_20_92_4c_a6_d8_area
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_47_20_92_4c_a6_d8_distance
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.bermuda_47_20_92_4c_a6_d8_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: number.bermuda_47_20_92_4c_a6_d8_calibration_ref_power_at_1m_0_for_default
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_60_3b_a2_2a_c5_9c_area
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_60_3b_a2_2a_c5_9c_distance
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.bermuda_60_3b_a2_2a_c5_9c_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: number.bermuda_60_3b_a2_2a_c5_9c_calibration_ref_power_at_1m_0_for_default
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_65_1f_26_01_49_92_area
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_65_1f_26_01_49_92_distance
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.bermuda_65_1f_26_01_49_92_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: number.bermuda_65_1f_26_01_49_92_calibration_ref_power_at_1m_0_for_default
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: device_tracker.apple_inc_6a_e5_14_e3_b4_ca_bermuda_tracker
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_4c_63_6b_1d_47_ea_floor
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_7c_9f_d6_33_00_af_floor
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_3c_c9_92_a0_58_e8_floor
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_b0_b1_13_93_f5_6f_floor
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_48_9e_bd_96_ce_34_floor
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_47_20_92_4c_a6_d8_floor
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_6a_e5_14_e3_b4_ca_floor
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_66_92_31_6b_af_23_floor
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_65_1f_26_01_49_92_floor
+  - action: homeassistant.disable_entity
+    data:
+      entity_id: sensor.bermuda_60_3b_a2_2a_c5_9c_floor

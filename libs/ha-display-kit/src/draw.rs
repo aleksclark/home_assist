@@ -22,6 +22,14 @@ pub fn style_small(color: Rgb565) -> MonoTextStyle<'static, Rgb565> {
     MonoTextStyleBuilder::new().font(&FONT_6X13).text_color(color).build()
 }
 
+pub fn style_small_bg(color: Rgb565, bg: Rgb565) -> MonoTextStyle<'static, Rgb565> {
+    MonoTextStyleBuilder::new().font(&FONT_6X13).text_color(color).background_color(bg).build()
+}
+
+pub fn style_large_bg(color: Rgb565, bg: Rgb565) -> MonoTextStyle<'static, Rgb565> {
+    MonoTextStyleBuilder::new().font(&FONT_10X20).text_color(color).background_color(bg).build()
+}
+
 pub fn txt<D: DrawTarget<Color = Rgb565>>(
     d: &mut D, text: &str, pos: Point, style: MonoTextStyle<'static, Rgb565>,
 ) -> anyhow::Result<()> {

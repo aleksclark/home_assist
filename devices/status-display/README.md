@@ -1,6 +1,6 @@
 # Status Display
 
-> **Status:** Working — ESPHome-compatible device with HA-configurable display slots
+> **Status:** Working — dedicated HVAC dashboard showing thermostat states and room temperatures
 
 ESP32-2432S028 (CYD / Cheap Yellow Display) wall-mounted status display. Acts as an ESPHome native API device — Home Assistant connects to it and pushes entity state updates in real time.
 
@@ -16,34 +16,57 @@ ESP32-2432S028 (CYD / Cheap Yellow Display) wall-mounted status display. Acts as
 | **Touch**     | XPT2046 resistive (SPI)                  |
 | **WiFi**      | 802.11 b/g/n                             |
 
+## Display Layout
+
+```
+┌──────────────────────────────────┐
+│           HVAC Status            │  header
+├──────────────────────────────────┤
+│ Kitchen    Cool   72F  68/75    │
+│ Livingroom Idle   71F  75F     │
+│ Amos BR    Heat   70F  60/68   │
+│ Hallway    Idle   73F  67/75   │
+├──────────────────────────────────┤
+│  A&K BR: 71F     Kitchen: 72F   │  BLE sensors
+├──────────────────────────────────┤
+│  WiFi OK  |  192.168.0.x        │  footer
+└──────────────────────────────────┘
+```
+
+### Thermostat Rows
+
+Each row shows:
+
+| Column | Source | Example |
+|--------|--------|---------|
+| **Name** | Hardcoded label | `Kitchen` |
+| **Status** | `hvac_action` attribute | `Cool`, `Heat`, `Idle`, `Off` |
+| **Current** | `current_temperature` attribute | `72F` |
+| **Range** | `target_temp_low`/`target_temp_high` or `temperature` | `68/75` |
+
+Status text is color-coded: heating→orange, cooling→cyan, idle→gray, off→dim.
+
+### Monitored Entities
+
+| Entity | Type | Purpose |
+|--------|------|---------|
+| `climate.kitchen_ac` | Della 18k BTU | Kitchen thermostat |
+| `climate.livingroom_ac` | Della 12k BTU | Livingroom thermostat |
+| `climate.amos_bedroom_ac` | Della 9k BTU | Amos bedroom thermostat |
+| `climate.smart_thermostat` | Matter thermostat | Hallway thermostat |
+| `sensor.atc_a0c6_temperature` | Xiaomi MiT2 BLE | A&K bedroom measured temp |
+| `sensor.kitchen_temperature` | Xiaomi MiT2 BLE | Kitchen measured temp |
+
 ## Home Assistant Integration
 
-The device implements the **ESPHome Native API** (plaintext protobuf over TCP on port 6053). No YAML config, no ESPHome compiler — just a standalone Rust firmware that speaks the same protocol.
+The device implements the **ESPHome Native API** (plaintext protobuf over TCP on port 6053). No YAML config, no ESPHome compiler — standalone Rust firmware that speaks the same protocol.
 
 ### Setup
 
 1. Flash the firmware to the device
 2. In HA: **Settings → Devices & Services → Add Integration → ESPHome**
 3. Enter the device IP (`192.168.0.105`) and port `6053`
-4. The device appears with 30 configurable entities (5 per display slot × 6 slots)
-
-### Configurable Display Slots
-
-Each of the 6 display slots exposes 5 Select entities in HA:
-
-| Entity | Purpose | Example |
-|--------|---------|---------|
-| **Slot N Entity ID** | HA entity to subscribe to | `sensor.kitchen_temp_temperature` |
-| **Slot N Label** | Display label text | `Kitchen` |
-| **Slot N Display Type** | `numeric`, `text`, or `status` | `numeric` |
-| **Slot N Unit** | Unit suffix for numeric values | `°F` |
-| **Slot N Attribute** | Entity attribute (blank = state) | `current_temperature` |
-
-### Display Types
-
-- **numeric** — Parses value as float, displays with unit suffix. Color: green.
-- **text** — Displays raw string value (truncated to 20 chars). Color: green.
-- **status** — Maps value to color: `heat`→orange, `cool`→cyan, `auto`→green, `off`→dim, `on`/`home`/`active`→green, `idle`→gray, etc.
+4. The device subscribes to the hardcoded entity list above
 
 ### Data Flow
 
@@ -51,29 +74,10 @@ Each of the 6 display slots exposes 5 Select entities in HA:
 HA ──TCP:6053──→ Device (ESPHome API server)
 
 1. HA connects, sends HelloRequest
-2. Device responds with entity list (30 Select + dynamic Sensor/TextSensor)
-3. HA subscribes to states
-4. Device tells HA which entity_ids to watch (SubscribeHomeAssistantStateResponse)
-5. HA pushes state updates in real time (HomeAssistantStateResponse)
-6. Device renders updates on display with incremental redraw (500ms refresh)
-```
-
-## Display Layout
-
-```
-┌─────────────────────────────────┐
-│          Home Status            │  ← header bar
-├────────────────┬────────────────┤
-│  Slot 1        │  Slot 2        │  ← configurable
-│  72 F          │  73 F          │
-├────────────────┼────────────────┤
-│  Slot 3        │  Slot 4        │  ← configurable
-│  Auto          │  65% RH        │
-├────────────────┼────────────────┤
-│  Slot 5        │  Slot 6        │  ← configurable
-├────────────────┴────────────────┤
-│  WiFi OK  |  192.168.0.x        │  ← footer
-└─────────────────────────────────┘
+2. Device responds (no entities to list)
+3. Device tells HA which entity_ids + attributes to watch
+4. HA pushes state updates in real time
+5. Device renders updates on display (500ms refresh)
 ```
 
 ## Firmware Architecture
@@ -81,35 +85,11 @@ HA ──TCP:6053──→ Device (ESPHome API server)
 ```
 firmware/src/
 ├── main.rs     Hardware init, WiFi, spawn API server + display loop
-├── api.rs      ESPHome native API server (TCP, protobuf, entity management)
+├── api.rs      ESPHome native API server (TCP, protobuf)
 ├── proto.rs    Protobuf wire format: VarInt, field encode/decode, frame I/O
-├── slots.rs    Configurable display slots (shared state via Arc<Mutex>)
-└── ui.rs       Dynamic rendering using ha-display-kit library
+├── state.rs    Hardcoded thermostat + sensor state (SharedState via Arc<Mutex>)
+└── ui.rs       HVAC dashboard rendering using ha-display-kit
 ```
-
-### ESPHome API Compliance
-
-Implements the subset of the ESPHome Native API needed for a display device:
-
-| Message | ID | Direction | Supported |
-|---------|----|-----------|-----------|
-| HelloRequest/Response | 1/2 | Both | ✓ |
-| DeviceInfoRequest/Response | 9/10 | Both | ✓ |
-| ListEntitiesRequest/Done | 11/19 | Both | ✓ |
-| ListEntitiesSelectResponse | 52 | Server→Client | ✓ |
-| ListEntitiesSensorResponse | 16 | Server→Client | ✓ |
-| ListEntitiesTextSensorResponse | 18 | Server→Client | ✓ |
-| SubscribeStatesRequest | 20 | Client→Server | ✓ |
-| SelectStateResponse | 53 | Server→Client | ✓ |
-| SensorStateResponse | 25 | Server→Client | ✓ |
-| TextSensorStateResponse | 27 | Server→Client | ✓ |
-| SelectCommandRequest | 54 | Client→Server | ✓ |
-| SubscribeHomeAssistantStatesReq | 38 | Client→Server | ✓ |
-| SubscribeHomeAssistantStateResp | 39 | Server→Client | ✓ |
-| HomeAssistantStateResponse | 40 | Client→Server | ✓ |
-| PingRequest/Response | 7/8 | Both | ✓ |
-| DisconnectRequest/Response | 5/6 | Both | ✓ |
-| GetTimeRequest/Response | 36/37 | Both | ✓ |
 
 ## Toolchain Setup
 

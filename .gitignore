@@ -19,3 +19,6 @@ Thumbs.db
 *.swo
 *~
 .vscode/
+home-assistant/ha-config-snapshot/home-assistant.log*
+home-assistant/ha-config-snapshot/secrets.yaml
+home-assistant/ha-config-snapshot/.ha_run.lock

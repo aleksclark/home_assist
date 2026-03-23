@@ -1,345 +1,324 @@
 # ---------------------------------------------------------------------------
 # HVAC Zone Automations
 # ---------------------------------------------------------------------------
-# Drives the 3 minisplit zones + ecobee central system from zones.yaml
-# schedule data.  All temperatures in Fahrenheit (HA unit system).
+# Drives the 3 Della minisplits + hallway thermostat from a 4-period
+# daily schedule.  All temperatures in Fahrenheit (HA unit system).
 # Deployed via MCP save_automation API — this file is a reference copy.
 #
-# Add to configuration.yaml:
-#   automation: !include automations_hvac.yaml
+# Thermostats:
+#   climate.kitchen_ac        — Della 18k BTU (MQTT)
+#   climate.amos_bedroom_ac   — Della 9k BTU  (MQTT)
+#   climate.livingroom_ac     — Della 12k BTU (MQTT) — thermal tracking only
+#   climate.smart_thermostat  — Hallway thermostat (Matter) — heat_cool dual setpoint
+#
+# Schedule periods (applied to kitchen, amos, hallway):
+#   early_morning : 05:30 – 06:30  (min 68°F, max 75°F)
+#   morning       : 06:30 – 08:30  (min 63°F, max 70°F)
+#   daytime       : 08:30 – 21:00  (min 68°F, max 75°F)
+#   overnight     : 21:00 – 05:30  (min 62°F, max 68°F)
+#
+# Della logic (kitchen, amos):
+#   current_temp <= heat_min → heat mode, setpoint = heat_min
+#   current_temp >= cool_max → cool mode, setpoint = cool_max
+#   within band              → off
+#
+# Hallway logic:
+#   heat_cool mode with target_temp_low / target_temp_high
+#
+# Livingroom: not occupied, kept within ±5°F of avg(kitchen, amos) temps.
+#
+# IMPORTANT: Variables that depend on other variables (heat_min/cool_max
+# depend on now_minutes) must be in a SEPARATE variables block.  HA
+# evaluates all variables within a single block in undefined order.
 # ---------------------------------------------------------------------------
 
 # ===========================================================================
-#  MINISPLIT ZONES — schedule-driven setpoints
+#  KITCHEN — schedule-driven heat/cool band
 # ===========================================================================
 
-# --- Kitchen (della_kitchen, 18k BTU) -----------------------------------
-
-- alias: "HVAC Kitchen - Occupied Start"
-  id: hvac_kitchen_occupied_start
+- alias: "HVAC Kitchen - Schedule Control"
+  id: hvac_kitchen_schedule
+  description: >
+    Controls kitchen AC based on 4-period daily schedule.
+    Determines heat/cool mode from current temp vs schedule band.
   triggers:
     - trigger: time
-      at: "05:00:00"
-  conditions:
-    - condition: state
-      entity_id: input_boolean.hvac_master_enable
-      state: "on"
-  actions:
-    - action: climate.set_temperature
-      target:
-        entity_id: climate.kitchen_ac
-      data:
-        temperature: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}
-            {{ ((states('input_number.hvac_occupied_cool_f') | float - 32) * 5/9) | round(0) }}
-          {% else %}
-            {{ ((states('input_number.hvac_occupied_heat_f') | float - 32) * 5/9) | round(0) }}
-          {% endif %}
-        hvac_mode: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}cool{% else %}heat{% endif %}
-
-- alias: "HVAC Kitchen - Unoccupied Start"
-  id: hvac_kitchen_unoccupied_start
-  triggers:
+      at: "05:30:00"
+    - trigger: time
+      at: "06:30:00"
+    - trigger: time
+      at: "08:30:00"
     - trigger: time
       at: "21:00:00"
+    - trigger: time_pattern
+      minutes: "/10"
   conditions:
     - condition: state
       entity_id: input_boolean.hvac_master_enable
       state: "on"
   actions:
-    - action: climate.set_temperature
-      target:
-        entity_id: climate.kitchen_ac
-      data:
-        temperature: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}
-            {{ ((states('input_number.hvac_unoccupied_cool_f') | float - 32) * 5/9) | round(0) }}
+    - variables:
+        current_temp: >
+          {{ state_attr('climate.kitchen_ac', 'current_temperature') | float(0) }}
+        now_minutes: >
+          {{ now().hour * 60 + now().minute }}
+    - variables:
+        heat_min: >
+          {% if 330 <= now_minutes < 390 %}
+            {{ states('input_number.hvac_early_morning_heat_f') | float }}
+          {% elif 390 <= now_minutes < 510 %}
+            {{ states('input_number.hvac_morning_heat_f') | float }}
+          {% elif 510 <= now_minutes < 1260 %}
+            {{ states('input_number.hvac_daytime_heat_f') | float }}
           {% else %}
-            {{ ((states('input_number.hvac_unoccupied_heat_f') | float - 32) * 5/9) | round(0) }}
+            {{ states('input_number.hvac_overnight_heat_f') | float }}
           {% endif %}
-        hvac_mode: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}cool{% else %}heat{% endif %}
+        cool_max: >
+          {% if 330 <= now_minutes < 390 %}
+            {{ states('input_number.hvac_early_morning_cool_f') | float }}
+          {% elif 390 <= now_minutes < 510 %}
+            {{ states('input_number.hvac_morning_cool_f') | float }}
+          {% elif 510 <= now_minutes < 1260 %}
+            {{ states('input_number.hvac_daytime_cool_f') | float }}
+          {% else %}
+            {{ states('input_number.hvac_overnight_cool_f') | float }}
+          {% endif %}
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ current_temp <= heat_min }}"
+          sequence:
+            - action: climate.set_temperature
+              target:
+                entity_id: climate.kitchen_ac
+              data:
+                temperature: "{{ heat_min }}"
+                hvac_mode: heat
+        - conditions:
+            - condition: template
+              value_template: "{{ current_temp >= cool_max }}"
+          sequence:
+            - action: climate.set_temperature
+              target:
+                entity_id: climate.kitchen_ac
+              data:
+                temperature: "{{ cool_max }}"
+                hvac_mode: cool
+      default:
+        - action: climate.set_hvac_mode
+          target:
+            entity_id: climate.kitchen_ac
+          data:
+            hvac_mode: "off"
 
-# --- Livingroom (della_livingroom, 12k BTU) ------------------------------
-# Livingroom has no explicit schedule in zones.yaml — it shares a wall
-# with kitchen and amos_bedroom.  We match kitchen occupied hours as the
-# best proxy for "common area" usage.
+# ===========================================================================
+#  AMOS BEDROOM — schedule-driven heat/cool band
+# ===========================================================================
 
-- alias: "HVAC Livingroom - Occupied Start"
-  id: hvac_livingroom_occupied_start
+- alias: "HVAC Amos Bedroom - Schedule Control"
+  id: hvac_amos_schedule
+  description: >
+    Controls Amos bedroom AC based on 4-period daily schedule.
+    Determines heat/cool mode from current temp vs schedule band.
   triggers:
     - trigger: time
-      at: "05:00:00"
-  conditions:
-    - condition: state
-      entity_id: input_boolean.hvac_master_enable
-      state: "on"
-  actions:
-    - action: climate.set_temperature
-      target:
-        entity_id: climate.livingroom_ac
-      data:
-        temperature: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}
-            {{ ((states('input_number.hvac_occupied_cool_f') | float - 32) * 5/9) | round(0) }}
-          {% else %}
-            {{ ((states('input_number.hvac_occupied_heat_f') | float - 32) * 5/9) | round(0) }}
-          {% endif %}
-        hvac_mode: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}cool{% else %}heat{% endif %}
-
-- alias: "HVAC Livingroom - Unoccupied Start"
-  id: hvac_livingroom_unoccupied_start
-  triggers:
+      at: "05:30:00"
+    - trigger: time
+      at: "06:30:00"
+    - trigger: time
+      at: "08:30:00"
     - trigger: time
       at: "21:00:00"
+    - trigger: time_pattern
+      minutes: "/10"
   conditions:
     - condition: state
       entity_id: input_boolean.hvac_master_enable
       state: "on"
   actions:
-    - action: climate.set_temperature
-      target:
-        entity_id: climate.livingroom_ac
-      data:
-        temperature: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}
-            {{ ((states('input_number.hvac_unoccupied_cool_f') | float - 32) * 5/9) | round(0) }}
+    - variables:
+        current_temp: >
+          {{ state_attr('climate.amos_bedroom_ac', 'current_temperature') | float(0) }}
+        now_minutes: >
+          {{ now().hour * 60 + now().minute }}
+    - variables:
+        heat_min: >
+          {% if 330 <= now_minutes < 390 %}
+            {{ states('input_number.hvac_early_morning_heat_f') | float }}
+          {% elif 390 <= now_minutes < 510 %}
+            {{ states('input_number.hvac_morning_heat_f') | float }}
+          {% elif 510 <= now_minutes < 1260 %}
+            {{ states('input_number.hvac_daytime_heat_f') | float }}
           {% else %}
-            {{ ((states('input_number.hvac_unoccupied_heat_f') | float - 32) * 5/9) | round(0) }}
+            {{ states('input_number.hvac_overnight_heat_f') | float }}
           {% endif %}
-        hvac_mode: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}cool{% else %}heat{% endif %}
-
-# --- Amos Bedroom (della_amos, 9k BTU) ----------------------------------
-
-- alias: "HVAC Amos - Occupied Start"
-  id: hvac_amos_occupied_start
-  triggers:
-    - trigger: time
-      at: "15:00:00"
-  conditions:
-    - condition: state
-      entity_id: input_boolean.hvac_master_enable
-      state: "on"
-  actions:
-    - action: climate.set_temperature
-      target:
-        entity_id: climate.amos_bedroom_ac
-      data:
-        temperature: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}
-            {{ ((states('input_number.hvac_occupied_cool_f') | float - 32) * 5/9) | round(0) }}
+        cool_max: >
+          {% if 330 <= now_minutes < 390 %}
+            {{ states('input_number.hvac_early_morning_cool_f') | float }}
+          {% elif 390 <= now_minutes < 510 %}
+            {{ states('input_number.hvac_morning_cool_f') | float }}
+          {% elif 510 <= now_minutes < 1260 %}
+            {{ states('input_number.hvac_daytime_cool_f') | float }}
           {% else %}
-            {{ ((states('input_number.hvac_occupied_heat_f') | float - 32) * 5/9) | round(0) }}
+            {{ states('input_number.hvac_overnight_cool_f') | float }}
           {% endif %}
-        hvac_mode: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}cool{% else %}heat{% endif %}
-
-- alias: "HVAC Amos - Sleep Start"
-  id: hvac_amos_sleep_start
-  triggers:
-    - trigger: time
-      at: "20:00:00"
-  conditions:
-    - condition: state
-      entity_id: input_boolean.hvac_master_enable
-      state: "on"
-  actions:
-    - action: climate.set_temperature
-      target:
-        entity_id: climate.amos_bedroom_ac
-      data:
-        temperature: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}
-            {{ ((states('input_number.hvac_sleep_cool_f') | float - 32) * 5/9) | round(0) }}
-          {% else %}
-            {{ ((states('input_number.hvac_sleep_heat_f') | float - 32) * 5/9) | round(0) }}
-          {% endif %}
-        hvac_mode: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}cool{% else %}heat{% endif %}
-
-- alias: "HVAC Amos - Unoccupied Start"
-  id: hvac_amos_unoccupied_start
-  triggers:
-    - trigger: time
-      at: "05:00:00"
-  conditions:
-    - condition: state
-      entity_id: input_boolean.hvac_master_enable
-      state: "on"
-  actions:
-    - action: climate.set_temperature
-      target:
-        entity_id: climate.amos_bedroom_ac
-      data:
-        temperature: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}
-            {{ ((states('input_number.hvac_unoccupied_cool_f') | float - 32) * 5/9) | round(0) }}
-          {% else %}
-            {{ ((states('input_number.hvac_unoccupied_heat_f') | float - 32) * 5/9) | round(0) }}
-          {% endif %}
-        hvac_mode: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}cool{% else %}heat{% endif %}
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ current_temp <= heat_min }}"
+          sequence:
+            - action: climate.set_temperature
+              target:
+                entity_id: climate.amos_bedroom_ac
+              data:
+                temperature: "{{ heat_min }}"
+                hvac_mode: heat
+        - conditions:
+            - condition: template
+              value_template: "{{ current_temp >= cool_max }}"
+          sequence:
+            - action: climate.set_temperature
+              target:
+                entity_id: climate.amos_bedroom_ac
+              data:
+                temperature: "{{ cool_max }}"
+                hvac_mode: cool
+      default:
+        - action: climate.set_hvac_mode
+          target:
+            entity_id: climate.amos_bedroom_ac
+          data:
+            hvac_mode: "off"
 
 # ===========================================================================
-#  CENTRAL AC (Ecobee) — serves hallway, girls_bedroom, girls_bathroom,
-#  ak_bedroom.  The thermostat lives in the hallway.
+#  HALLWAY — schedule-driven heat_cool dual setpoint
 # ===========================================================================
-# The ecobee is set to the most-demanding zone's target for the current
-# time slot.  ak_bedroom is occupied longest (05:00-21:00), so its
-# schedule drives the central system during the day.
-# Girls_bedroom has the latest sleep window (22:00-05:00).
 
-- alias: "HVAC Central - Occupied Start (AK Morning)"
-  id: hvac_central_occupied_start
+- alias: "HVAC Hallway - Schedule Control"
+  id: hvac_hallway_schedule
+  description: >
+    Controls hallway thermostat (Matter) based on 4-period daily schedule.
+    Uses heat_cool mode with dual setpoints for min/max band.
   triggers:
     - trigger: time
-      at: "05:00:00"
-  conditions:
-    - condition: state
-      entity_id: input_boolean.hvac_master_enable
-      state: "on"
-  actions:
-    - action: climate.set_temperature
-      target:
-        entity_id: climate.my_ecobee_2
-      data:
-        temperature: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}
-            {{ states('input_number.hvac_occupied_cool_f') | float }}
-          {% else %}
-            {{ states('input_number.hvac_occupied_heat_f') | float }}
-          {% endif %}
-        hvac_mode: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}cool{% else %}heat{% endif %}
-
-- alias: "HVAC Central - Sleep Start (AK Bedtime)"
-  id: hvac_central_sleep_start
-  triggers:
+      at: "05:30:00"
+    - trigger: time
+      at: "06:30:00"
+    - trigger: time
+      at: "08:30:00"
     - trigger: time
       at: "21:00:00"
+    - trigger: time_pattern
+      minutes: "/10"
   conditions:
     - condition: state
       entity_id: input_boolean.hvac_master_enable
       state: "on"
   actions:
+    - variables:
+        now_minutes: >
+          {{ now().hour * 60 + now().minute }}
+    - variables:
+        heat_min: >
+          {% if 330 <= now_minutes < 390 %}
+            {{ states('input_number.hvac_early_morning_heat_f') | float }}
+          {% elif 390 <= now_minutes < 510 %}
+            {{ states('input_number.hvac_morning_heat_f') | float }}
+          {% elif 510 <= now_minutes < 1260 %}
+            {{ states('input_number.hvac_daytime_heat_f') | float }}
+          {% else %}
+            {{ states('input_number.hvac_overnight_heat_f') | float }}
+          {% endif %}
+        cool_max: >
+          {% if 330 <= now_minutes < 390 %}
+            {{ states('input_number.hvac_early_morning_cool_f') | float }}
+          {% elif 390 <= now_minutes < 510 %}
+            {{ states('input_number.hvac_morning_cool_f') | float }}
+          {% elif 510 <= now_minutes < 1260 %}
+            {{ states('input_number.hvac_daytime_cool_f') | float }}
+          {% else %}
+            {{ states('input_number.hvac_overnight_cool_f') | float }}
+          {% endif %}
     - action: climate.set_temperature
       target:
-        entity_id: climate.my_ecobee_2
+        entity_id: climate.smart_thermostat
       data:
-        temperature: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}
-            {{ states('input_number.hvac_sleep_cool_f') | float }}
-          {% else %}
-            {{ states('input_number.hvac_sleep_heat_f') | float }}
-          {% endif %}
-        hvac_mode: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}cool{% else %}heat{% endif %}
+        hvac_mode: heat_cool
+        target_temp_low: "{{ heat_min }}"
+        target_temp_high: "{{ cool_max }}"
 
 # ===========================================================================
-#  GIRLS BEDROOM — pre-cool / pre-heat before sleep
+#  LIVINGROOM — thermal tracking (not occupied)
 # ===========================================================================
-# girls_bedroom has no dedicated unit; it relies on central AC.
-# At 16:00 (occupied start), central is already running occupied targets.
-# At 22:00 (sleep), central has already shifted to sleep targets at 21:00.
-# No extra automation needed — the central schedule covers it.
-# If the girls room consistently runs warm/cold, consider adding a
-# dedicated minisplit or a vent-boost automation here.
+# Keeps livingroom within ±5°F of avg(kitchen sensor, amos sensor).
+# Uses BLE thermometers for reference, livingroom AC's built-in sensor
+# for the room temp.
 
-# ===========================================================================
-#  CROSS-SYSTEM COORDINATION
-# ===========================================================================
-
-# --- Prevent minisplits from fighting central AC -------------------------
-# If the ecobee is actively heating, don't let a nearby minisplit cool
-# (and vice versa).  The green_room is the thermal bridge between the
-# minisplit side (kitchen) and the central side (hallway).
-
-- alias: "HVAC Conflict Guard - Disable Minisplit Cool While Central Heats"
-  id: hvac_conflict_guard_cool
+- alias: "HVAC Livingroom - Thermal Tracking"
+  id: hvac_livingroom_thermal_tracking
+  description: >
+    Keeps livingroom within 5°F of the average of kitchen + amos room
+    temperatures. Livingroom is not directly occupied but must stay
+    thermally coupled to adjacent zones.
   triggers:
+    - trigger: time_pattern
+      minutes: "/10"
     - trigger: state
-      entity_id: climate.ecobee
-      attribute: hvac_action
-      to: "heating"
-  conditions:
-    - condition: state
-      entity_id: input_boolean.hvac_master_enable
-      state: "on"
-  actions:
-    - action: climate.set_hvac_mode
-      target:
-        entity_id:
-          - climate.kitchen_ac
-          - climate.livingroom_ac
-          - climate.amos_bedroom_ac
-      data:
-        hvac_mode: "off"
-    - action: persistent_notification.create
-      data:
-        title: "HVAC Conflict Guard"
-        message: "Minisplits turned off — central system is heating."
-
-- alias: "HVAC Conflict Guard - Disable Minisplit Heat While Central Cools"
-  id: hvac_conflict_guard_heat
-  triggers:
+      entity_id: sensor.kitchen_temp_temperature
     - trigger: state
-      entity_id: climate.ecobee
-      attribute: hvac_action
-      to: "cooling"
+      entity_id: sensor.atc_48af_temperature
   conditions:
     - condition: state
       entity_id: input_boolean.hvac_master_enable
       state: "on"
     - condition: template
       value_template: >
-        {{ state_attr('climate.kitchen_ac', 'hvac_action') == 'heating'
-           or state_attr('climate.livingroom_ac', 'hvac_action') == 'heating'
-           or state_attr('climate.amos_bedroom_ac', 'hvac_action') == 'heating' }}
+        {{ states('sensor.kitchen_temp_temperature') not in ['unavailable','unknown']
+           and states('sensor.atc_48af_temperature') not in ['unavailable','unknown'] }}
   actions:
-    - action: climate.set_hvac_mode
-      target:
-        entity_id:
-          - climate.kitchen_ac
-          - climate.livingroom_ac
-          - climate.amos_bedroom_ac
-      data:
-        hvac_mode: "off"
-    - action: persistent_notification.create
-      data:
-        title: "HVAC Conflict Guard"
-        message: "Minisplits turned off — central system is cooling and minisplits were heating."
-
-# --- Restore minisplits after central finishes its cycle -----------------
-- alias: "HVAC Conflict Guard - Restore Minisplits After Central Idle"
-  id: hvac_conflict_guard_restore
-  triggers:
-    - trigger: state
-      entity_id: climate.ecobee
-      attribute: hvac_action
-      to: "idle"
-      for:
-        minutes: 5
-  conditions:
-    - condition: state
-      entity_id: input_boolean.hvac_master_enable
-      state: "on"
-  actions:
-    - action: climate.set_hvac_mode
-      target:
-        entity_id:
-          - climate.kitchen_ac
-          - climate.livingroom_ac
-          - climate.amos_bedroom_ac
-      data:
-        hvac_mode: >
-          {% if is_state('input_boolean.hvac_season_cool', 'on') %}cool{% else %}heat{% endif %}
-    - action: persistent_notification.create
-      data:
-        title: "HVAC Conflict Guard"
-        message: "Central idle for 5 min — minisplits restored."
+    - variables:
+        kitchen_temp: >
+          {{ states('sensor.kitchen_temp_temperature') | float(0) }}
+        amos_temp: >
+          {{ states('sensor.atc_48af_temperature') | float(0) }}
+        band: >
+          {{ states('input_number.hvac_livingroom_thermal_band_f') | float(5) }}
+        lr_temp: >
+          {{ state_attr('climate.livingroom_ac', 'current_temperature') | float(0) }}
+    - variables:
+        avg_temp: >
+          {{ ((kitchen_temp + amos_temp) / 2) | round(1) }}
+        target_low: >
+          {{ ((kitchen_temp + amos_temp) / 2 - band) | round(1) }}
+        target_high: >
+          {{ ((kitchen_temp + amos_temp) / 2 + band) | round(1) }}
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ lr_temp <= target_low }}"
+          sequence:
+            - action: climate.set_temperature
+              target:
+                entity_id: climate.livingroom_ac
+              data:
+                temperature: "{{ target_low }}"
+                hvac_mode: heat
+        - conditions:
+            - condition: template
+              value_template: "{{ lr_temp >= target_high }}"
+          sequence:
+            - action: climate.set_temperature
+              target:
+                entity_id: climate.livingroom_ac
+              data:
+                temperature: "{{ target_high }}"
+                hvac_mode: cool
+      default:
+        - action: climate.set_hvac_mode
+          target:
+            entity_id: climate.livingroom_ac
+          data:
+            hvac_mode: "off"
 
 # ===========================================================================
 #  SAFETY — turn everything off if master switch is disabled
@@ -358,6 +337,6 @@
           - climate.kitchen_ac
           - climate.livingroom_ac
           - climate.amos_bedroom_ac
-          - climate.ecobee
+          - climate.smart_thermostat
       data:
         hvac_mode: "off"

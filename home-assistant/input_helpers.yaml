@@ -13,27 +13,26 @@ input_boolean:
     name: HVAC Master Enable
     icon: mdi:hvac
 
-  hvac_season_cool:
-    name: HVAC Season - Cooling
-    icon: mdi:snowflake
-
-  hvac_season_heat:
-    name: HVAC Season - Heating
-    icon: mdi:fire
 
 # --- input_number ---
+# Four schedule periods:
+#   early_morning : 05:30 – 06:30
+#   morning       : 06:30 – 08:30
+#   daytime       : 08:30 – 21:00
+#   overnight     : 21:00 – 05:30
+
 input_number:
-  hvac_occupied_heat_f:
-    name: Occupied Heat Target (F)
+  hvac_early_morning_heat_f:
+    name: Early Morning Heat Min (F)
     min: 55
     max: 80
     step: 1
-    initial: 67
+    initial: 68
     unit_of_measurement: "°F"
     icon: mdi:thermometer-chevron-up
 
-  hvac_occupied_cool_f:
-    name: Occupied Cool Target (F)
+  hvac_early_morning_cool_f:
+    name: Early Morning Cool Max (F)
     min: 65
     max: 85
     step: 1
@@ -41,26 +40,44 @@ input_number:
     unit_of_measurement: "°F"
     icon: mdi:thermometer-chevron-down
 
-  hvac_sleep_heat_f:
-    name: Sleep Heat Target (F)
+  hvac_morning_heat_f:
+    name: Morning Heat Min (F)
     min: 55
-    max: 75
+    max: 80
     step: 1
-    initial: 60
+    initial: 63
     unit_of_measurement: "°F"
     icon: mdi:thermometer-chevron-up
 
-  hvac_sleep_cool_f:
-    name: Sleep Cool Target (F)
+  hvac_morning_cool_f:
+    name: Morning Cool Max (F)
     min: 60
-    max: 80
+    max: 85
     step: 1
-    initial: 68
+    initial: 70
     unit_of_measurement: "°F"
     icon: mdi:thermometer-chevron-down
 
-  hvac_unoccupied_heat_f:
-    name: Unoccupied Heat Target (F)
+  hvac_daytime_heat_f:
+    name: Daytime Heat Min (F)
+    min: 55
+    max: 80
+    step: 1
+    initial: 65
+    unit_of_measurement: "°F"
+    icon: mdi:thermometer-chevron-up
+
+  hvac_daytime_cool_f:
+    name: Daytime Cool Max (F)
+    min: 65
+    max: 85
+    step: 1
+    initial: 75
+    unit_of_measurement: "°F"
+    icon: mdi:thermometer-chevron-down
+
+  hvac_overnight_heat_f:
+    name: Overnight Heat Min (F)
     min: 50
     max: 75
     step: 1
@@ -68,11 +85,20 @@ input_number:
     unit_of_measurement: "°F"
     icon: mdi:thermometer-chevron-up
 
-  hvac_unoccupied_cool_f:
-    name: Unoccupied Cool Target (F)
-    min: 70
-    max: 90
+  hvac_overnight_cool_f:
+    name: Overnight Cool Max (F)
+    min: 60
+    max: 80
     step: 1
-    initial: 82
+    initial: 68
     unit_of_measurement: "°F"
     icon: mdi:thermometer-chevron-down
+
+  hvac_livingroom_thermal_band_f:
+    name: Livingroom Thermal Band (F)
+    min: 1
+    max: 10
+    step: 1
+    initial: 5
+    unit_of_measurement: "°F"
+    icon: mdi:thermometer-lines

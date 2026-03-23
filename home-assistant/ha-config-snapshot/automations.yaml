@@ -1,0 +1,331 @@
+- id: hvac_kitchen_schedule
+  alias: HVAC Kitchen - Schedule Control
+  description: Controls kitchen AC based on 4-period daily schedule. Uses direct MQTT
+    to avoid entity conflicts.
+  triggers:
+  - at: 05:30:00
+    trigger: time
+  - at: 06:30:00
+    trigger: time
+  - at: 08:30:00
+    trigger: time
+  - at: '21:00:00'
+    trigger: time
+  - minutes: /10
+    trigger: time_pattern
+  conditions:
+  - condition: state
+    entity_id: input_boolean.hvac_master_enable
+    state: 'on'
+  actions:
+  - variables:
+      current_temp: '{{ state_attr(''climate.kitchen_ac'', ''current_temperature'')
+        | float(0) }}'
+      now_minutes: '{{ now().hour * 60 + now().minute }}'
+  - variables:
+      cool_max: '{% if 330 <= now_minutes < 390 %}{{ states(''input_number.hvac_early_morning_cool_f'')
+        | int }}{% elif 390 <= now_minutes < 510 %}{{ states(''input_number.hvac_morning_cool_f'')
+        | int }}{% elif 510 <= now_minutes < 1260 %}{{ states(''input_number.hvac_daytime_cool_f'')
+        | int }}{% else %}{{ states(''input_number.hvac_overnight_cool_f'') | int
+        }}{% endif %}'
+      heat_min: '{% if 330 <= now_minutes < 390 %}{{ states(''input_number.hvac_early_morning_heat_f'')
+        | int }}{% elif 390 <= now_minutes < 510 %}{{ states(''input_number.hvac_morning_heat_f'')
+        | int }}{% elif 510 <= now_minutes < 1260 %}{{ states(''input_number.hvac_daytime_heat_f'')
+        | int }}{% else %}{{ states(''input_number.hvac_overnight_heat_f'') | int
+        }}{% endif %}'
+  - variables:
+      cool_max_c: '{{ ((cool_max - 32) * 5 / 9) | round(0) | int }}'
+      heat_min_c: '{{ ((heat_min - 32) * 5 / 9) | round(0) | int }}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ current_temp <= heat_min }}'
+      sequence:
+      - action: mqtt.publish
+        data:
+          payload: heat
+          topic: cmnd/minisplit_kitchen/ACMode
+      - action: mqtt.publish
+        data:
+          payload: '{{ heat_min_c }}'
+          topic: cmnd/minisplit_kitchen/TargetTemperature
+    - conditions:
+      - condition: template
+        value_template: '{{ current_temp >= cool_max }}'
+      sequence:
+      - action: mqtt.publish
+        data:
+          payload: cool
+          topic: cmnd/minisplit_kitchen/ACMode
+      - action: mqtt.publish
+        data:
+          payload: '{{ cool_max_c }}'
+          topic: cmnd/minisplit_kitchen/TargetTemperature
+    default:
+    - action: mqtt.publish
+      data:
+        payload: 'off'
+        topic: cmnd/minisplit_kitchen/ACMode
+- id: hvac_amos_schedule
+  alias: HVAC Amos Bedroom - Schedule Control
+  description: Controls Amos bedroom AC based on 4-period daily schedule. Uses direct
+    MQTT to avoid entity conflicts.
+  triggers:
+  - at: 05:30:00
+    trigger: time
+  - at: 06:30:00
+    trigger: time
+  - at: 08:30:00
+    trigger: time
+  - at: '21:00:00'
+    trigger: time
+  - minutes: /10
+    trigger: time_pattern
+  conditions:
+  - condition: state
+    entity_id: input_boolean.hvac_master_enable
+    state: 'on'
+  actions:
+  - variables:
+      current_temp: '{{ state_attr(''climate.amos_bedroom_ac'', ''current_temperature'')
+        | float(0) }}'
+      now_minutes: '{{ now().hour * 60 + now().minute }}'
+  - variables:
+      cool_max: '{% if 330 <= now_minutes < 390 %}{{ states(''input_number.hvac_early_morning_cool_f'')
+        | int }}{% elif 390 <= now_minutes < 510 %}{{ states(''input_number.hvac_morning_cool_f'')
+        | int }}{% elif 510 <= now_minutes < 1260 %}{{ states(''input_number.hvac_daytime_cool_f'')
+        | int }}{% else %}{{ states(''input_number.hvac_overnight_cool_f'') | int
+        }}{% endif %}'
+      heat_min: '{% if 330 <= now_minutes < 390 %}{{ states(''input_number.hvac_early_morning_heat_f'')
+        | int }}{% elif 390 <= now_minutes < 510 %}{{ states(''input_number.hvac_morning_heat_f'')
+        | int }}{% elif 510 <= now_minutes < 1260 %}{{ states(''input_number.hvac_daytime_heat_f'')
+        | int }}{% else %}{{ states(''input_number.hvac_overnight_heat_f'') | int
+        }}{% endif %}'
+  - variables:
+      cool_max_c: '{{ ((cool_max - 32) * 5 / 9) | round(0) | int }}'
+      heat_min_c: '{{ ((heat_min - 32) * 5 / 9) | round(0) | int }}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ current_temp <= heat_min }}'
+      sequence:
+      - action: mqtt.publish
+        data:
+          payload: heat
+          topic: cmnd/minisplit_amos/ACMode
+      - action: mqtt.publish
+        data:
+          payload: '{{ heat_min_c }}'
+          topic: cmnd/minisplit_amos/TargetTemperature
+    - conditions:
+      - condition: template
+        value_template: '{{ current_temp >= cool_max }}'
+      sequence:
+      - action: mqtt.publish
+        data:
+          payload: cool
+          topic: cmnd/minisplit_amos/ACMode
+      - action: mqtt.publish
+        data:
+          payload: '{{ cool_max_c }}'
+          topic: cmnd/minisplit_amos/TargetTemperature
+    default:
+    - action: mqtt.publish
+      data:
+        payload: 'off'
+        topic: cmnd/minisplit_amos/ACMode
+- id: hvac_livingroom_thermal_tracking
+  alias: HVAC Livingroom - Thermal Tracking
+  description: Keeps livingroom within 5F of avg(kitchen, amos) temps. Uses direct
+    MQTT to avoid entity conflicts.
+  triggers:
+  - minutes: /10
+    trigger: time_pattern
+  - entity_id: sensor.kitchen_temp_temperature
+    trigger: state
+  - entity_id: sensor.atc_48af_temperature
+    trigger: state
+  conditions:
+  - condition: state
+    entity_id: input_boolean.hvac_master_enable
+    state: 'on'
+  - condition: template
+    value_template: '{{ states(''sensor.kitchen_temp_temperature'') not in [''unavailable'',''unknown'']
+      and states(''sensor.atc_48af_temperature'') not in [''unavailable'',''unknown'']
+      }}'
+  actions:
+  - variables:
+      amos_temp: '{{ states(''sensor.atc_48af_temperature'') | float(0) }}'
+      band: '{{ states(''input_number.hvac_livingroom_thermal_band_f'') | float(5)
+        }}'
+      kitchen_temp: '{{ states(''sensor.kitchen_temp_temperature'') | float(0) }}'
+      lr_temp: '{{ state_attr(''climate.livingroom_ac'', ''current_temperature'')
+        | float(0) }}'
+  - variables:
+      avg_temp: '{{ ((kitchen_temp + amos_temp) / 2) | round(1) }}'
+      target_high: '{{ ((kitchen_temp + amos_temp) / 2 + band) | round(1) }}'
+      target_low: '{{ ((kitchen_temp + amos_temp) / 2 - band) | round(1) }}'
+  - variables:
+      target_high_c: '{{ ((target_high - 32) * 5 / 9) | round(0) | int }}'
+      target_low_c: '{{ ((target_low - 32) * 5 / 9) | round(0) | int }}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ lr_temp <= target_low }}'
+      sequence:
+      - action: mqtt.publish
+        data:
+          payload: heat
+          topic: cmnd/minisplit_livingroom/ACMode
+      - action: mqtt.publish
+        data:
+          payload: '{{ target_low_c }}'
+          topic: cmnd/minisplit_livingroom/TargetTemperature
+    - conditions:
+      - condition: template
+        value_template: '{{ lr_temp >= target_high }}'
+      sequence:
+      - action: mqtt.publish
+        data:
+          payload: cool
+          topic: cmnd/minisplit_livingroom/ACMode
+      - action: mqtt.publish
+        data:
+          payload: '{{ target_high_c }}'
+          topic: cmnd/minisplit_livingroom/TargetTemperature
+    default:
+    - action: mqtt.publish
+      data:
+        payload: 'off'
+        topic: cmnd/minisplit_livingroom/ACMode
+- id: hvac_master_disable
+  alias: HVAC Master Disable - All Off
+  description: Turns off all thermostats when master enable is toggled off.
+  triggers:
+  - entity_id: input_boolean.hvac_master_enable
+    to: 'off'
+    trigger: state
+  conditions: []
+  actions:
+  - action: climate.set_hvac_mode
+    data:
+      hvac_mode: 'off'
+    target:
+      entity_id:
+      - climate.kitchen_ac
+      - climate.livingroom_ac
+      - climate.amos_bedroom_ac
+      - climate.smart_thermostat
+- id: hvac_hallway_schedule
+  alias: HVAC Hallway - Schedule Control
+  description: Controls hallway thermostat (Matter) based on 4-period daily schedule.
+    Uses heat_cool mode with dual setpoints for min/max band.
+  triggers:
+  - at: 05:30:00
+    trigger: time
+  - at: 06:30:00
+    trigger: time
+  - at: 08:30:00
+    trigger: time
+  - at: '21:00:00'
+    trigger: time
+  - minutes: /10
+    trigger: time_pattern
+  conditions:
+  - condition: state
+    entity_id: input_boolean.hvac_master_enable
+    state: 'on'
+  actions:
+  - variables:
+      now_minutes: '{{ now().hour * 60 + now().minute }}'
+  - variables:
+      cool_max: '{% if 330 <= now_minutes < 390 %}{{ states(''input_number.hvac_early_morning_cool_f'')
+        | int }}{% elif 390 <= now_minutes < 510 %}{{ states(''input_number.hvac_morning_cool_f'')
+        | int }}{% elif 510 <= now_minutes < 1260 %}{{ states(''input_number.hvac_daytime_cool_f'')
+        | int }}{% else %}{{ states(''input_number.hvac_overnight_cool_f'') | int
+        }}{% endif %}'
+      heat_min: '{% if 330 <= now_minutes < 390 %}{{ states(''input_number.hvac_early_morning_heat_f'')
+        | int }}{% elif 390 <= now_minutes < 510 %}{{ states(''input_number.hvac_morning_heat_f'')
+        | int }}{% elif 510 <= now_minutes < 1260 %}{{ states(''input_number.hvac_daytime_heat_f'')
+        | int }}{% else %}{{ states(''input_number.hvac_overnight_heat_f'') | int
+        }}{% endif %}'
+  - action: climate.set_temperature
+    data:
+      hvac_mode: heat_cool
+      target_temp_high: '{{ cool_max }}'
+      target_temp_low: '{{ heat_min }}'
+    target:
+      entity_id: climate.smart_thermostat
+- id: irrigation_zone3_moisture
+  alias: Irrigation Zone 3 - Moisture Control
+  description: When zone 3 moisture drops to 70%, irrigate with valve 3 for 30s, wait
+    15min, repeat until moisture reaches 90%.
+  triggers:
+  - below: 70
+    entity_id: sensor.outdoor_irrigation_controller_zone_3_moisture
+    trigger: numeric_state
+  conditions: []
+  actions:
+  - repeat:
+      sequence:
+      - action: switch.turn_on
+        target:
+          entity_id: switch.outdoor_irrigation_controller_zone_3_valve
+      - delay:
+          seconds: 30
+      - action: switch.turn_off
+        target:
+          entity_id: switch.outdoor_irrigation_controller_zone_3_valve
+      - delay:
+          minutes: 15
+      while:
+      - below: 90
+        condition: numeric_state
+        entity_id: sensor.outdoor_irrigation_controller_zone_3_moisture
+  mode: single
+- id: irrigation_zones124_moisture
+  alias: Irrigation Zones 1,2,4 - Moisture Control
+  description: When any of zones 1, 2, or 4 moisture drops to 70%, irrigate with valves
+    2+4 for 30s, wait 15min, repeat until ALL of zones 1, 2, and 4 reach 90%. Valve
+    1 is non-functional.
+  triggers:
+  - below: 70
+    entity_id: sensor.outdoor_irrigation_controller_zone_1_moisture
+    trigger: numeric_state
+  - below: 70
+    entity_id: sensor.outdoor_irrigation_controller_zone_2_moisture
+    trigger: numeric_state
+  - below: 70
+    entity_id: sensor.outdoor_irrigation_controller_zone_4_moisture
+    trigger: numeric_state
+  conditions: []
+  actions:
+  - repeat:
+      sequence:
+      - action: switch.turn_on
+        target:
+          entity_id:
+          - switch.outdoor_irrigation_controller_zone_2_valve
+          - switch.outdoor_irrigation_controller_zone_4_valve
+      - delay:
+          seconds: 30
+      - action: switch.turn_off
+        target:
+          entity_id:
+          - switch.outdoor_irrigation_controller_zone_2_valve
+          - switch.outdoor_irrigation_controller_zone_4_valve
+      - delay:
+          minutes: 15
+      while:
+      - condition: or
+        conditions:
+        - below: 90
+          condition: numeric_state
+          entity_id: sensor.outdoor_irrigation_controller_zone_1_moisture
+        - below: 90
+          condition: numeric_state
+          entity_id: sensor.outdoor_irrigation_controller_zone_2_moisture
+        - below: 90
+          condition: numeric_state
+          entity_id: sensor.outdoor_irrigation_controller_zone_4_moisture
+  mode: single

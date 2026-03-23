@@ -1,0 +1,80 @@
+hvac_early_morning_heat_f:
+  name: Early Morning Heat Min (F)
+  min: 55
+  max: 80
+  step: 1
+  initial: 68
+  unit_of_measurement: "°F"
+  icon: mdi:thermometer-chevron-up
+
+hvac_early_morning_cool_f:
+  name: Early Morning Cool Max (F)
+  min: 65
+  max: 85
+  step: 1
+  initial: 75
+  unit_of_measurement: "°F"
+  icon: mdi:thermometer-chevron-down
+
+hvac_morning_heat_f:
+  name: Morning Heat Min (F)
+  min: 55
+  max: 80
+  step: 1
+  initial: 63
+  unit_of_measurement: "°F"
+  icon: mdi:thermometer-chevron-up
+
+hvac_morning_cool_f:
+  name: Morning Cool Max (F)
+  min: 60
+  max: 85
+  step: 1
+  initial: 70
+  unit_of_measurement: "°F"
+  icon: mdi:thermometer-chevron-down
+
+hvac_daytime_heat_f:
+  name: Daytime Heat Min (F)
+  min: 55
+  max: 80
+  step: 1
+  initial: 65
+  unit_of_measurement: "°F"
+  icon: mdi:thermometer-chevron-up
+
+hvac_daytime_cool_f:
+  name: Daytime Cool Max (F)
+  min: 65
+  max: 85
+  step: 1
+  initial: 73
+  unit_of_measurement: "°F"
+  icon: mdi:thermometer-chevron-down
+
+hvac_overnight_heat_f:
+  name: Overnight Heat Min (F)
+  min: 50
+  max: 75
+  step: 1
+  initial: 62
+  unit_of_measurement: "°F"
+  icon: mdi:thermometer-chevron-up
+
+hvac_overnight_cool_f:
+  name: Overnight Cool Max (F)
+  min: 60
+  max: 80
+  step: 1
+  initial: 68
+  unit_of_measurement: "°F"
+  icon: mdi:thermometer-chevron-down
+
+hvac_livingroom_thermal_band_f:
+  name: Livingroom Thermal Band (F)
+  min: 1
+  max: 10
+  step: 1
+  initial: 5
+  unit_of_measurement: "°F"
+  icon: mdi:thermometer-lines

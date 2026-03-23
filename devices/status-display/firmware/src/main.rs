@@ -1,6 +1,9 @@
 mod api;
+mod backlight;
+mod ota;
 mod proto;
-mod slots;
+mod state;
+mod touch;
 mod ui;
 
 use std::thread;
@@ -17,6 +20,7 @@ use esp_idf_hal::spi::{SpiDeviceDriver, SpiDriverConfig};
 use esp_idf_hal::units::FromValueType;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
+use esp_idf_svc::sntp::{EspSntp, SyncStatus};
 use esp_idf_svc::wifi::{BlockingWifi, ClientConfiguration, Configuration, EspWifi};
 
 use display_interface_spi::SPIInterface;
@@ -32,16 +36,14 @@ const REFRESH_INTERVAL: Duration = Duration::from_millis(500);
 fn main() -> Result<()> {
     esp_idf_sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
-    log::info!("Status Display starting (ESPHome mode)...");
+    log::info!("Status Display starting...");
 
     let peripherals = Peripherals::take()?;
     let sysloop = EspSystemEventLoop::take()?;
     let nvs_partition = EspDefaultNvsPartition::take()?;
-    let slots_nvs = nvs_partition.clone();
 
-    // -- Display --
+    // -- Display (SPI2) --
     let dc = PinDriver::output(peripherals.pins.gpio2)?;
-    let mut backlight = PinDriver::output(peripherals.pins.gpio21)?;
 
     let spi = SpiDeviceDriver::new_single(
         peripherals.spi2,
@@ -58,13 +60,30 @@ fn main() -> Result<()> {
         .init(&mut Ets)
         .map_err(|e| anyhow::anyhow!("Display init: {:?}", e))?;
 
-    backlight.set_high()?;
+    // -- Backlight (LEDC PWM) --
+    let mut bl = backlight::Backlight::new(
+        peripherals.ledc.timer0,
+        peripherals.ledc.channel0,
+        peripherals.pins.gpio21,
+    )?;
+
     log::info!("Display initialized");
 
     display.clear(Rgb565::new(2, 4, 2)).map_err(|_| anyhow::anyhow!("clear"))?;
 
     let mut dashboard = ui::Dashboard::new(String::new());
     dashboard.draw_boot_status(&mut display, "Connecting to WiFi...", None)?;
+
+    // -- Touch (SPI3 / XPT2046) --
+    let touch = touch::Touch::new(
+        peripherals.spi3,
+        peripherals.pins.gpio25,
+        peripherals.pins.gpio32,
+        peripherals.pins.gpio39,
+        peripherals.pins.gpio33,
+        peripherals.pins.gpio36,
+    )?;
+    log::info!("Touch initialized");
 
     // -- WiFi --
     let mut wifi = BlockingWifi::wrap(
@@ -85,6 +104,19 @@ fn main() -> Result<()> {
     log::info!("WiFi connected! IP: {}", ip_str);
 
     dashboard = ui::Dashboard::new(ip_str.clone());
+    dashboard.draw_boot_status(&mut display, "Syncing time...", Some(&ip_str))?;
+
+    // -- SNTP --
+    std::env::set_var("TZ", "CST6CDT,M3.2.0,M11.1.0");
+    let _sntp = EspSntp::new_default()?;
+    for _ in 0..40 {
+        if _sntp.get_sync_status() == SyncStatus::Completed {
+            break;
+        }
+        thread::sleep(Duration::from_millis(250));
+    }
+    log::info!("SNTP sync status: {:?}", _sntp.get_sync_status());
+
     dashboard.draw_boot_status(&mut display, "Starting API server...", Some(&ip_str))?;
 
     // -- MAC address --
@@ -95,18 +127,17 @@ fn main() -> Result<()> {
         mac_bytes[3], mac_bytes[4], mac_bytes[5],
     );
 
-
-    // -- Slot manager --
-    let shared_slots = slots::new_shared(Some(slots_nvs));
+    // -- Shared state --
+    let shared_state = state::new_shared();
 
     // -- API server thread --
-    let api_slots = shared_slots.clone();
+    let api_state = shared_state.clone();
     let api_mac = mac_str.clone();
     thread::Builder::new()
         .name("api-server".into())
-        .stack_size(8192)
+        .stack_size(65536)
         .spawn(move || {
-            api::start_server(api_slots, api_mac, API_PORT);
+            api::start_server(api_state, api_mac, API_PORT);
         })?;
 
     dashboard.draw_boot_status(&mut display, "Waiting for HA...", Some(&ip_str))?;
@@ -114,7 +145,16 @@ fn main() -> Result<()> {
 
     // -- Display refresh loop --
     loop {
-        if let Err(e) = dashboard.update(&mut display, &shared_slots) {
+        if let Some(stream) = api::take_ota_stream() {
+            log::info!("OTA: handling on main thread");
+            if let Err(e) = ota::handle_update(stream) {
+                log::error!("OTA failed: {:?}", e);
+            }
+        }
+
+        bl.tick(touch.is_touched())?;
+
+        if let Err(e) = dashboard.update(&mut display, &shared_state) {
             log::error!("Draw error: {:?}", e);
         }
         thread::sleep(REFRESH_INTERVAL);
