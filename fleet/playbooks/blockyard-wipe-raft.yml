@@ -1,0 +1,57 @@
+---
+# Wipe Raft state and restart the blockyard cluster from scratch.
+# WARNING: This destroys all volume metadata. Data extents on disk are preserved.
+#
+# Usage:
+#   ansible-playbook playbooks/blockyard-wipe-raft.yml
+#   ansible-playbook playbooks/blockyard-wipe-raft.yml -l node-1   # single node only
+
+- name: Wipe Raft state and restart blockyard cluster
+  hosts: storage
+  become: true
+  serial: 1
+  order: sorted
+  tasks:
+    - name: Stop blockyard
+      ansible.builtin.systemd:
+        name: blockyard
+        state: stopped
+      register: stop_result
+      failed_when: false
+      timeout: 15
+
+    - name: Force kill if stop hung
+      ansible.builtin.shell: |
+        killall -9 blockyard 2>/dev/null || true
+        sleep 1
+        systemctl reset-failed blockyard 2>/dev/null || true
+      when: stop_result.failed | default(false)
+
+    - name: Remove Raft state files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ blockyard_data_dir }}/raft.db"
+        - "{{ blockyard_data_dir }}/raft-sm.db"
+        - "{{ blockyard_data_dir }}/node_id"
+
+    - name: Start blockyard
+      ansible.builtin.systemd:
+        name: blockyard
+        state: started
+
+    - name: Wait for blockyard to be ready
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}:{{ blockyard_mgmt_port }}/api/v1/cluster/status"
+        return_content: false
+        status_code: [200]
+      register: health
+      retries: 10
+      delay: 2
+      until: health.status == 200
+      failed_when: false
+
+    - name: Report status
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} — {{ 'healthy' if health.status == 200 else 'NOT READY (may need other nodes)' }}"

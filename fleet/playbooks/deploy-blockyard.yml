@@ -1,0 +1,55 @@
+---
+# Deploy blockyard binary and config to storage nodes.
+#
+# Default: builds from source first (set blockyard_skip_build=true to skip)
+# Usage:
+#   ansible-playbook playbooks/deploy-blockyard.yml                    # build + deploy all
+#   ansible-playbook playbooks/deploy-blockyard.yml -l node-1          # deploy to one node
+#   ansible-playbook playbooks/deploy-blockyard.yml -e blockyard_skip_build=true  # deploy only (pre-built)
+#   ansible-playbook playbooks/deploy-blockyard.yml -t deploy          # binary + config only (no disk setup)
+
+- name: Build blockyard
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars:
+    blockyard_repo: /home/aleks/work/projects/blockyard/repo
+    blockyard_skip_build: false
+    # asdf shims don't work in non-interactive shells; use rustup's real paths
+    rustup_home: /home/aleks/.asdf/installs/rust/1.93.0
+    cargo_bin: "{{ rustup_home }}/bin/cargo"
+  environment:
+    RUSTUP_HOME: "{{ rustup_home }}"
+    CARGO_HOME: "{{ rustup_home }}"
+    PATH: "{{ rustup_home }}/toolchains/stable-x86_64-unknown-linux-gnu/bin:{{ rustup_home }}/bin:{{ ansible_env.PATH }}"
+  tasks:
+    - name: Build release binaries
+      ansible.builtin.shell: |
+        CARGO={{ rustup_home }}/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+        RUSTC={{ rustup_home }}/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc
+        export PATH="{{ rustup_home }}/toolchains/stable-x86_64-unknown-linux-gnu/bin:$PATH"
+        cd {{ blockyard_repo }} && $CARGO build --release -p blockyard -p blockyard-cli --features ublk-kernel 2>&1
+      register: build_result
+      when: not blockyard_skip_build | bool
+      changed_when: "'Compiling' in build_result.stdout"
+
+    - name: Show build output
+      ansible.builtin.debug:
+        msg: "{{ build_result.stdout_lines[-5:] }}"
+      when: build_result is changed
+
+    - name: Set binary paths
+      ansible.builtin.set_fact:
+        blockyard_binary_path: "{{ blockyard_repo }}/target/release/blockyard"
+        byard_binary_path: "{{ blockyard_repo }}/target/release/byard"
+
+- name: Deploy blockyard to storage nodes
+  hosts: storage
+  become: true
+  serial: 1
+  vars:
+    blockyard_binary_path: /home/aleks/work/projects/blockyard/repo/target/release/blockyard
+    byard_binary_path: /home/aleks/work/projects/blockyard/repo/target/release/byard
+  roles:
+    - blockyard
+  tags: [blockyard, deploy]

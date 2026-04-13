@@ -1,0 +1,47 @@
+---
+# Restart blockyard cluster with rolling restarts (one node at a time).
+# Safe — preserves all Raft state and data.
+#
+# Usage:
+#   ansible-playbook playbooks/blockyard-restart.yml
+#   ansible-playbook playbooks/blockyard-restart.yml -l node-1   # single node only
+
+- name: Rolling restart blockyard cluster
+  hosts: storage
+  become: true
+  serial: 1
+  order: sorted
+  tasks:
+    - name: Stop blockyard
+      ansible.builtin.systemd:
+        name: blockyard
+        state: stopped
+      register: stop_result
+      failed_when: false
+      timeout: 15
+
+    - name: Force kill if stop hung
+      ansible.builtin.shell: |
+        killall -9 blockyard 2>/dev/null || true
+        sleep 1
+        systemctl reset-failed blockyard 2>/dev/null || true
+      when: stop_result.failed | default(false)
+
+    - name: Start blockyard
+      ansible.builtin.systemd:
+        name: blockyard
+        state: started
+
+    - name: Wait for blockyard to be ready
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}:{{ blockyard_mgmt_port }}/api/v1/cluster/status"
+        return_content: false
+        status_code: [200]
+      register: health
+      retries: 10
+      delay: 2
+      until: health.status == 200
+
+    - name: Report status
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} — healthy"

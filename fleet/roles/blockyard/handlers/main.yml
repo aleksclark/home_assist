@@ -1,0 +1,19 @@
+---
+- name: restart blockyard
+  ansible.builtin.systemd:
+    name: blockyard
+    state: restarted
+  register: restart_result
+  failed_when: false
+
+- name: force kill blockyard if restart hung
+  ansible.builtin.shell: |
+    killall -9 blockyard 2>/dev/null || true
+    sleep 1
+    systemctl reset-failed blockyard 2>/dev/null || true
+    systemctl start blockyard
+  when: restart_result is defined and restart_result.failed | default(false)
+
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
