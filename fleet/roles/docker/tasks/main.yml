@@ -1,0 +1,27 @@
+---
+- name: Install Docker
+  ansible.builtin.package:
+    name:
+      - docker
+      - containerd
+    state: present
+  tags: [docker]
+
+- name: Add admin user to docker group
+  ansible.builtin.user:
+    name: "{{ fleet_admin_user }}"
+    groups: docker
+    append: true
+
+- name: Enable and start Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+  tags: [docker]
+
+- name: Enable containerd
+  ansible.builtin.systemd:
+    name: containerd
+    enabled: true
+    state: started

@@ -1,0 +1,52 @@
+---
+- name: Install snapper + snap-pac + grub-btrfs
+  ansible.builtin.package:
+    name:
+      - snapper
+      - snap-pac
+      - grub-btrfs
+    state: present
+
+- name: Check if snapper root config exists
+  ansible.builtin.stat:
+    path: /etc/snapper/configs/root
+  register: snapper_root_config
+
+- name: Create snapper root config
+  ansible.builtin.shell: |
+    # If .snapshots subvolume already exists (from bootstrap), snapper create-config fails.
+    # Temporarily unmount, delete the subvol, let snapper create it, then re-mount.
+    if mountpoint -q /.snapshots; then
+      umount /.snapshots
+    fi
+    if btrfs subvolume show /.snapshots >/dev/null 2>&1; then
+      btrfs subvolume delete /.snapshots
+    fi
+    snapper -c root create-config /
+    # Re-mount the snapper-created subvolume if fstab has an entry
+    if grep -q snapshots /etc/fstab; then
+      mount /.snapshots
+    fi
+  when: not snapper_root_config.stat.exists
+  changed_when: true
+
+- name: Configure snapper retention
+  ansible.builtin.template:
+    src: snapper_root.j2
+    dest: /etc/snapper/configs/root
+    mode: "0640"
+
+- name: Enable snapper timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - snapper-timeline.timer
+    - snapper-cleanup.timer
+
+- name: Enable grub-btrfsd for snapshot boot entries
+  ansible.builtin.systemd:
+    name: grub-btrfsd
+    enabled: true
+    state: started

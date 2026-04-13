@@ -1,0 +1,12 @@
+# Fleet SSH config — managed by Ansible
+Port 22
+PermitRootLogin prohibit-password
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+UsePAM yes
+X11Forwarding no
+PrintMotd no
+AcceptEnv LANG LC_*
+Subsystem sftp /usr/lib/ssh/sftp-server
+# Allow admin user
+AllowUsers {{ fleet_admin_user }}

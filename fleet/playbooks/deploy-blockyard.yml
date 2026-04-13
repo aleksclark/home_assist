@@ -28,7 +28,7 @@
         CARGO={{ rustup_home }}/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
         RUSTC={{ rustup_home }}/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc
         export PATH="{{ rustup_home }}/toolchains/stable-x86_64-unknown-linux-gnu/bin:$PATH"
-        cd {{ blockyard_repo }} && $CARGO build --release -p blockyard -p blockyard-cli --features ublk-kernel 2>&1
+        cd {{ blockyard_repo }} && $CARGO build --release -p blockyard -p blockyard-cli -F ublk-kernel -F blockyard-cli/ublk-kernel 2>&1
       register: build_result
       when: not blockyard_skip_build | bool
       changed_when: "'Compiling' in build_result.stdout"

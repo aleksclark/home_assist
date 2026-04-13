@@ -1,0 +1,8 @@
+---
+nomad_datacenter: home
+nomad_region: home
+nomad_server: false
+nomad_server_hosts: []
+nomad_bind_interface: "{{ ansible_default_ipv4.interface | default('eth0') }}"
+nomad_node_class: ""
+nomad_meta: {}

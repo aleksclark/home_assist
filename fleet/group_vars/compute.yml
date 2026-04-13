@@ -1,0 +1,10 @@
+# Variables for docker compute nodes
+
+nomad_node_class: compute
+nomad_meta:
+  compute_node: "true"
+
+# Extra packages for compute nodes
+compute_packages:
+  - docker
+  - containerd

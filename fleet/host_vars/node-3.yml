@@ -1,0 +1,34 @@
+# node-3 — Dell OptiPlex 7020
+# Bootstrapped: 2026-04-10
+# Role: storage + compute
+# Boot: BIOS (no UEFI)
+
+ansible_host: 192.168.0.89
+
+# Hardware specs
+machine_cpu_cores: 4
+machine_ram_gb: 8
+machine_gpu: false
+
+# OS disk — btrfs root (320GB WD HDD)
+os_disk: /dev/sdb
+
+# Data disks for blockyard — XFS formatted
+blockyard_data_disks:
+  - device: /dev/sda
+    mount: /data/disk0
+    label: byard-data0
+  - device: /dev/sdb
+    mount: /data/disk1
+    label: byard-data1
+
+# Nomad node class — both roles
+nomad_node_class: "storage-compute"
+
+# Blockyard cluster seed — join via node-1
+blockyard_seed_nodes:
+  - "192.168.0.23"
+nomad_meta:
+  storage: "true"
+  compute: "true"
+  disk_total_tb: "5.4"

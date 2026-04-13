@@ -1,0 +1,31 @@
+---
+- name: Install nomad
+  ansible.builtin.package:
+    name: nomad
+    state: present
+  tags: [nomad]
+
+- name: Create nomad directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - /var/lib/nomad
+    - /etc/nomad.d
+
+- name: Deploy nomad config
+  ansible.builtin.template:
+    src: nomad.hcl.j2
+    dest: /etc/nomad.d/nomad.hcl
+    mode: "0640"
+  notify: restart nomad
+
+- name: Enable and start nomad
+  ansible.builtin.systemd:
+    name: nomad
+    enabled: true
+    state: started
+  tags: [nomad]

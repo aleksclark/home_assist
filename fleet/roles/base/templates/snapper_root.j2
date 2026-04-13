@@ -1,0 +1,25 @@
+# Snapper config for root — managed by Ansible
+SUBVOLUME="/"
+FSTYPE="btrfs"
+QGROUP=""
+SPACE_LIMIT="0.5"
+FREE_LIMIT="0.2"
+ALLOW_USERS="{{ fleet_admin_user }}"
+ALLOW_GROUPS=""
+SYNC_ACL="no"
+BACKGROUND_COMPARISON="yes"
+
+# Timeline snapshots
+TIMELINE_CREATE="{{ snapper_configs[0].timeline_create | default('yes') | string | lower }}"
+TIMELINE_CLEANUP="yes"
+TIMELINE_LIMIT_HOURLY="{{ snapper_configs[0].timeline_limit_hourly | default(5) }}"
+TIMELINE_LIMIT_DAILY="{{ snapper_configs[0].timeline_limit_daily | default(7) }}"
+TIMELINE_LIMIT_WEEKLY="{{ snapper_configs[0].timeline_limit_weekly | default(4) }}"
+TIMELINE_LIMIT_MONTHLY="{{ snapper_configs[0].timeline_limit_monthly | default(3) }}"
+TIMELINE_LIMIT_YEARLY="0"
+
+# Number snapshots (from snap-pac pacman hook)
+NUMBER_CLEANUP="yes"
+NUMBER_MIN_AGE="1800"
+NUMBER_LIMIT="10"
+NUMBER_LIMIT_IMPORTANT="5"

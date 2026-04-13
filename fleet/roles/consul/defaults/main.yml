@@ -1,0 +1,6 @@
+---
+consul_datacenter: home
+consul_encrypt_key: ""
+consul_server: false
+consul_server_hosts: []
+consul_bind_interface: "{{ ansible_default_ipv4.interface | default('eth0') }}"

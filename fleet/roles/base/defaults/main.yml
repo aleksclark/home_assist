@@ -1,0 +1,37 @@
+---
+# Role defaults — overridden by group_vars/all.yml
+fleet_admin_user: aleks
+fleet_admin_groups:
+  - wheel
+  - docker
+fleet_admin_ssh_pubkey: ""
+pacman_archive_date: "latest"
+base_packages:
+  - base-devel
+  - git
+  - vim
+  - htop
+  - tmux
+  - rsync
+  - curl
+  - wget
+  - jq
+  - python
+  - openssh
+  - mkinitcpio
+  - linux
+  - linux-headers
+  - linux-firmware
+  - btrfs-progs
+  - snapper
+  - snap-pac
+  - grub-btrfs
+snapper_configs:
+  - name: root
+    subvolume: /
+    timeline_create: true
+    timeline_limit_hourly: 5
+    timeline_limit_daily: 7
+    timeline_limit_weekly: 4
+    timeline_limit_monthly: 3
+fleet_domain: "fleet.local"

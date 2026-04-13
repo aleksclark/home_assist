@@ -1,0 +1,49 @@
+---
+# Format and mount XFS data disks for blockyard
+
+- name: Install xfsprogs
+  ansible.builtin.package:
+    name: xfsprogs
+    state: present
+
+- name: Check existing filesystem on data disks
+  ansible.builtin.command:
+    cmd: "blkid -o value -s TYPE {{ item.device }}"
+  register: disk_fs_check
+  changed_when: false
+  failed_when: false
+  loop: "{{ blockyard_data_disks | default([]) }}"
+
+- name: Format disks as XFS (only if no filesystem exists)
+  ansible.builtin.command:
+    cmd: "mkfs.xfs -f -L {{ item.item.label }} {{ item.item.device }}"
+  when: item.stdout != "xfs"
+  loop: "{{ disk_fs_check.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.device }}"
+
+- name: Create mount points
+  ansible.builtin.file:
+    path: "{{ item.mount }}"
+    state: directory
+    owner: blockyard
+    group: blockyard
+    mode: "0750"
+  loop: "{{ blockyard_data_disks | default([]) }}"
+
+- name: Mount data disks
+  ansible.posix.mount:
+    path: "{{ item.mount }}"
+    src: "{{ item.device }}"
+    fstype: xfs
+    opts: defaults,noatime
+    state: mounted
+  loop: "{{ blockyard_data_disks | default([]) }}"
+
+- name: Set blockyard ownership on data mounts
+  ansible.builtin.file:
+    path: "{{ item.mount }}"
+    owner: blockyard
+    group: blockyard
+    mode: "0750"
+  loop: "{{ blockyard_data_disks | default([]) }}"

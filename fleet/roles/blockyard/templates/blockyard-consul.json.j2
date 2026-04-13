@@ -1,0 +1,12 @@
+{
+  "service": {
+    "name": "blockyard",
+    "tags": ["storage", "block"],
+    "port": {{ blockyard_listen_port }},
+    "check": {
+      "tcp": "{{ ansible_host }}:{{ blockyard_listen_port }}",
+      "interval": "10s",
+      "timeout": "3s"
+    }
+  }
+}

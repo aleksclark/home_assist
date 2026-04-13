@@ -1,0 +1,41 @@
+# Blockyard node config — managed by Ansible
+# See: NodeConfig in blockyard-common/src/config.rs
+
+name = "{{ inventory_hostname }}"
+listen_addr = "{{ ansible_host }}:{{ blockyard_listen_port }}"
+data_dir = "{{ blockyard_data_dir }}"
+
+[storage]
+disk_paths = [
+{% for disk in blockyard_data_disks | default([]) %}
+  "{{ disk.mount }}",
+{% endfor %}
+]
+max_background_io = 4
+scrub_interval_secs = 86400
+
+[raft]
+election_timeout_min_ms = 300
+election_timeout_max_ms = 600
+heartbeat_interval_ms = 100
+max_entries_per_batch = 64
+snapshot_threshold = 10000
+bind_addr = "{{ ansible_host }}:{{ blockyard_raft_port }}"
+
+[gossip]
+bind_addr = "{{ ansible_host }}:{{ blockyard_gossip_port }}"
+seed_nodes = [
+{% for node_ip in blockyard_seed_nodes | default([]) %}
+{% if node_ip != ansible_host %}
+  "{{ node_ip }}:{{ blockyard_gossip_port }}",
+{% endif %}
+{% endfor %}
+]
+gossip_interval_ms = 500
+suspicion_mult = 4
+
+[protocol]
+max_message_size = 67108864
+connect_timeout_ms = 5000
+request_timeout_ms = 30000
+mgmt_addr = "{{ ansible_host }}:{{ blockyard_mgmt_port }}"

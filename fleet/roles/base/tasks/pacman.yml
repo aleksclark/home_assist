@@ -1,0 +1,22 @@
+---
+- name: Configure Arch Linux Archive mirror (pinned)
+  ansible.builtin.template:
+    src: mirrorlist.j2
+    dest: /etc/pacman.d/mirrorlist
+    mode: "0644"
+  when: pacman_archive_date | default('latest') != 'latest'
+  tags: [pacman]
+
+- name: Update archlinux-keyring first (prevents signature failures)
+  ansible.builtin.command:
+    cmd: pacman -Sy --noconfirm archlinux-keyring
+  changed_when: true
+  tags: [pacman]
+
+- name: Configure pacman.conf
+  ansible.builtin.template:
+    src: pacman.conf.j2
+    dest: /etc/pacman.conf
+    mode: "0644"
+    backup: true
+  tags: [pacman]

@@ -1,0 +1,22 @@
+---
+- name: Create admin user
+  ansible.builtin.user:
+    name: "{{ fleet_admin_user }}"
+    groups: "{{ fleet_admin_groups }}"
+    append: true
+    shell: /bin/bash
+    create_home: true
+
+- name: Set authorized SSH key
+  ansible.posix.authorized_key:
+    user: "{{ fleet_admin_user }}"
+    key: "{{ fleet_admin_ssh_pubkey }}"
+    exclusive: false
+
+- name: Passwordless sudo for wheel group
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/wheel
+    line: "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
+    create: true
+    mode: "0440"
+    validate: "visudo -cf %s"

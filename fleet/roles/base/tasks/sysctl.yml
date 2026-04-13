@@ -1,0 +1,20 @@
+---
+- name: Apply sysctl tuning
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: /etc/sysctl.d/90-fleet.conf
+    reload: true
+  loop:
+    # Network performance
+    - { key: "net.core.rmem_max", value: "16777216" }
+    - { key: "net.core.wmem_max", value: "16777216" }
+    - { key: "net.ipv4.tcp_rmem", value: "4096 87380 16777216" }
+    - { key: "net.ipv4.tcp_wmem", value: "4096 65536 16777216" }
+    # File descriptors
+    - { key: "fs.file-max", value: "2097152" }
+    # VM tuning for storage nodes
+    - { key: "vm.swappiness", value: "10" }
+    - { key: "vm.dirty_ratio", value: "15" }
+    - { key: "vm.dirty_background_ratio", value: "5" }

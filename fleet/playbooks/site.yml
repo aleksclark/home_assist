@@ -1,0 +1,25 @@
+---
+# Full fleet converge — applies all roles appropriate to each host
+
+- name: Base configuration for all nodes
+  hosts: nodes
+  become: true
+  roles:
+    - base
+    - consul
+    - nomad
+  tags: [base]
+
+- name: Storage nodes — blockyard
+  hosts: storage
+  become: true
+  roles:
+    - blockyard
+  tags: [storage]
+
+- name: Compute nodes — Docker
+  hosts: compute
+  become: true
+  roles:
+    - docker
+  tags: [compute]

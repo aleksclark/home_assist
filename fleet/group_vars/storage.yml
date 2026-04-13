@@ -1,0 +1,20 @@
+# Variables for blockyard storage nodes
+
+# XFS data disks — set per host in host_vars/<hostname>.yml
+# Each entry: { device: "/dev/sdb", mount: "/data/disk0", label: "byard-data0" }
+# blockyard_data_disks is defined in host_vars only
+
+# Blockyard config
+blockyard_data_dir: /var/lib/blockyard
+blockyard_listen_port: 9800
+blockyard_gossip_port: 9801
+blockyard_mgmt_port: 9801
+blockyard_raft_port: 9810
+
+# seed_nodes — set per host in host_vars (empty for bootstrap leader)
+# blockyard_seed_nodes is defined in host_vars only
+
+# Nomad meta for storage nodes — advertises storage capacity
+nomad_node_class: storage
+nomad_meta:
+  storage_node: "true"

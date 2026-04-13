@@ -1,0 +1,67 @@
+# Common variables for all fleet nodes
+
+# --- Users & SSH ---
+fleet_admin_user: aleks
+fleet_admin_ssh_pubkey: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+fleet_admin_groups:
+  - wheel
+  - docker
+
+# --- Pacman ---
+# Pin to Arch Linux Archive for fleet-wide consistency.
+# Update this date when you want to roll a new set of packages.
+# Set to "latest" to use the default mirrorlist (rolling).
+pacman_archive_date: "latest"  # e.g., "2026/04/06" for pinned
+
+# Base packages installed on every node
+base_packages:
+  - base-devel
+  - git
+  - vim
+  - htop
+  - tmux
+  - rsync
+  - curl
+  - wget
+  - jq
+  - python
+  - openssh
+  - mkinitcpio
+  - linux
+  - linux-headers
+  - linux-firmware
+  - btrfs-progs
+  - snapper
+  - snap-pac
+  - grub-btrfs
+
+# --- Snapper ---
+snapper_configs:
+  - name: root
+    subvolume: /
+    timeline_create: true
+    timeline_limit_hourly: 5
+    timeline_limit_daily: 7
+    timeline_limit_weekly: 4
+    timeline_limit_monthly: 3
+
+# --- Network ---
+fleet_domain: "fleet.local"
+fleet_dns_servers:
+  - 192.168.0.1
+
+# --- Consul ---
+consul_datacenter: home
+consul_encrypt_key: ""  # Generate with: consul keygen
+consul_server_hosts: "{{ groups['servers'] | default([]) }}"
+consul_bind_interface: "{{ ansible_default_ipv4.interface }}"
+
+# --- Nomad ---
+nomad_datacenter: home
+nomad_region: home
+nomad_server_hosts: "{{ groups['servers'] | default([]) }}"
+nomad_bind_interface: "{{ ansible_default_ipv4.interface }}"
+
+# --- Upgrade ---
+upgrade_reboot_timeout: 300
+upgrade_health_check_delay: 30

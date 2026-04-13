@@ -1,0 +1,69 @@
+---
+- name: Create blockyard user
+  ansible.builtin.user:
+    name: blockyard
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ blockyard_data_dir }}"
+    create_home: false
+
+- name: Create blockyard directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: blockyard
+    group: blockyard
+    mode: "0750"
+  loop:
+    - "{{ blockyard_data_dir }}"
+    - /etc/blockyard
+
+- name: Format data disks as XFS (if not already)
+  import_tasks: disks.yml
+  tags: [disks]
+
+- name: Deploy blockyard binary
+  ansible.builtin.copy:
+    src: "{{ blockyard_binary_path }}"
+    dest: /usr/local/bin/blockyard
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart blockyard
+  when: blockyard_binary_path is defined
+  tags: [deploy]
+
+- name: Deploy byard CLI
+  ansible.builtin.copy:
+    src: "{{ byard_binary_path }}"
+    dest: /usr/local/bin/byard
+    owner: root
+    group: root
+    mode: "0755"
+  when: byard_binary_path is defined
+  tags: [deploy]
+
+- name: Deploy blockyard config
+  ansible.builtin.template:
+    src: blockyard.toml.j2
+    dest: /etc/blockyard/config.toml
+    owner: blockyard
+    group: blockyard
+    mode: "0640"
+  notify: restart blockyard
+
+- name: Deploy blockyard systemd unit
+  ansible.builtin.template:
+    src: blockyard.service.j2
+    dest: /etc/systemd/system/blockyard.service
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart blockyard
+
+- name: Enable and start blockyard
+  ansible.builtin.systemd:
+    name: blockyard
+    enabled: true
+    state: started
+  tags: [blockyard]

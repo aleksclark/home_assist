@@ -1,0 +1,57 @@
+# Nomad config — managed by Ansible
+datacenter = "{{ nomad_datacenter }}"
+region     = "{{ nomad_region }}"
+data_dir   = "/var/lib/nomad"
+log_level  = "INFO"
+
+bind_addr = "{{ '{{' }} GetInterfaceIP \"{{ nomad_bind_interface }}\" {{ '}}' }}"
+
+{% if nomad_server | default(false) %}
+server {
+  enabled          = true
+  bootstrap_expect = {{ nomad_server_hosts | length | default(1) }}
+}
+{% endif %}
+
+client {
+  enabled = true
+
+{% if nomad_node_class is defined %}
+  node_class = "{{ nomad_node_class }}"
+{% endif %}
+
+{% if nomad_meta is defined %}
+  meta {
+{% for key, value in nomad_meta.items() %}
+    {{ key }} = "{{ value }}"
+{% endfor %}
+  }
+{% endif %}
+
+{% if blockyard_data_disks is defined and blockyard_data_disks | length > 0 %}
+  # Advertise available storage
+  host_volume "blockyard-data" {
+    path      = "{{ blockyard_data_disks[0].mount }}"
+    read_only = false
+  }
+{% endif %}
+}
+
+# Consul integration
+consul {
+  address = "127.0.0.1:8500"
+}
+
+plugin "docker" {
+  config {
+    allow_privileged = true
+    volumes {
+      enabled = true
+    }
+  }
+}
+
+telemetry {
+  publish_allocation_metrics = true
+  publish_node_metrics       = true
+}

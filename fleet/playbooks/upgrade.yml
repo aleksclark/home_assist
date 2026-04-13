@@ -1,0 +1,117 @@
+---
+# Rolling upgrade with btrfs snapshot and rollback on failure.
+# Runs serially (one node at a time) to maintain cluster availability.
+
+- name: Rolling fleet upgrade
+  hosts: nodes
+  become: true
+  serial: 1
+  max_fail_percentage: 0
+
+  tasks:
+    - name: Create pre-upgrade btrfs snapshot
+      ansible.builtin.command:
+        cmd: snapper -c root create --description "pre-upgrade-{{ ansible_date_time.iso8601_basic_short }}" --type pre
+      register: pre_snapshot
+      changed_when: true
+      tags: [snapshot]
+
+    - name: Update archlinux-keyring first
+      ansible.builtin.package:
+        name: archlinux-keyring
+        state: latest
+        update_cache: true
+      tags: [upgrade]
+
+    - name: Full system upgrade
+      ansible.builtin.command:
+        cmd: pacman -Syu --noconfirm
+      register: upgrade_result
+      changed_when: "'there is nothing to do' not in upgrade_result.stdout"
+      tags: [upgrade]
+
+    - name: Create post-upgrade snapshot
+      ansible.builtin.command:
+        cmd: "snapper -c root create --description post-upgrade-{{ ansible_date_time.iso8601_basic_short }} --type post --pre-number {{ pre_snapshot.stdout | regex_search('[0-9]+') }}"
+      when: upgrade_result is changed
+      changed_when: true
+      tags: [snapshot]
+
+    - name: Check if kernel was upgraded
+      ansible.builtin.shell:
+        cmd: "pacman -Q linux | awk '{print $2}'"
+      register: installed_kernel
+      changed_when: false
+      tags: [reboot]
+
+    - name: Check running kernel version
+      ansible.builtin.command:
+        cmd: uname -r
+      register: running_kernel
+      changed_when: false
+      tags: [reboot]
+
+    - name: Reboot if kernel changed
+      ansible.builtin.reboot:
+        reboot_timeout: "{{ upgrade_reboot_timeout }}"
+        msg: "Rebooting after kernel upgrade"
+      when: installed_kernel.stdout not in running_kernel.stdout
+      tags: [reboot]
+
+    - name: Wait for node to come back
+      ansible.builtin.wait_for_connection:
+        timeout: "{{ upgrade_reboot_timeout }}"
+      tags: [reboot]
+
+    - name: Health check — consul agent alive
+      ansible.builtin.command:
+        cmd: consul members
+      register: consul_health
+      failed_when: consul_health.rc != 0
+      changed_when: false
+      tags: [health]
+
+    - name: Health check — nomad agent alive
+      ansible.builtin.command:
+        cmd: nomad node status -self
+      register: nomad_health
+      failed_when: nomad_health.rc != 0
+      changed_when: false
+      tags: [health]
+
+    - name: Health check — blockyard (storage nodes only)
+      ansible.builtin.command:
+        cmd: systemctl is-active blockyard
+      when: "'storage' in group_names"
+      register: blockyard_health
+      failed_when: blockyard_health.rc != 0
+      changed_when: false
+      tags: [health]
+
+  rescue:
+    - name: ROLLBACK — restore pre-upgrade snapshot
+      ansible.builtin.shell:
+        cmd: |
+          SNAP_NUM=$(snapper -c root list --columns number,description | grep "pre-upgrade" | tail -1 | awk '{print $1}')
+          if [ -n "$SNAP_NUM" ]; then
+            snapper -c root undochange "$SNAP_NUM..0"
+            echo "Rolled back to snapshot $SNAP_NUM"
+          else
+            echo "No pre-upgrade snapshot found!"
+            exit 1
+          fi
+      register: rollback_result
+      changed_when: true
+
+    - name: Reboot after rollback
+      ansible.builtin.reboot:
+        reboot_timeout: "{{ upgrade_reboot_timeout }}"
+        msg: "Rebooting after rollback"
+
+    - name: Fail the play to stop serial execution
+      ansible.builtin.fail:
+        msg: >
+          Upgrade failed on {{ inventory_hostname }}.
+          Rolled back to pre-upgrade snapshot.
+          Fix the issue before continuing fleet upgrade.
+          Rollback output: {{ rollback_result.stdout | default('none') }}

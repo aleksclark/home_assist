@@ -1,0 +1,6 @@
+---
+blockyard_data_dir: /var/lib/blockyard
+blockyard_listen_port: 9800
+blockyard_gossip_port: 9801
+blockyard_mgmt_port: 9801
+blockyard_raft_port: 9810

@@ -1,0 +1,21 @@
+# Example per-host variables — copy to host_vars/<hostname>.yml
+# Defines the machine-specific config: IP, disk layout, resources.
+
+ansible_host: 192.168.0.10
+
+# Hardware specs (informational + used by Nomad resource advertising)
+machine_cpu_cores: 4
+machine_ram_gb: 16
+machine_gpu: false
+
+# OS disk — btrfs root, set during bootstrap
+os_disk: /dev/sda
+
+# Data disks for blockyard — XFS formatted
+blockyard_data_disks:
+  - device: /dev/sdb
+    mount: /data/disk0
+    label: byard-data0
+  - device: /dev/sdc
+    mount: /data/disk1
+    label: byard-data1

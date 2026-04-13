@@ -1,0 +1,11 @@
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.csproj.AssemblyReference.cache
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.FormDownloader.resources
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.FormExtractedConfig.resources
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.FormMain.resources
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.FormOBKConfig.resources
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.FormPin.resources
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.FormCustom.resources
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.FormPrompt.resources
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.Properties.Resources.resources
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.csproj.GenerateResource.cache
+/home/aleks/work/bt_track/flasher/BK7231GUIFlashTool-main/BK7231Flasher/obj/Debug/BK7231Flasher.csproj.CoreCompileInputs.cache

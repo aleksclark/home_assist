@@ -1,0 +1,26 @@
+# node-1 — Dell Inspiron 660
+# Bootstrapped: 2026-04-10
+# Role: storage + compute
+
+ansible_host: 192.168.0.23
+
+# Hardware specs
+machine_cpu_cores: 4
+machine_ram_gb: 8
+machine_gpu: false
+
+# OS disk — btrfs root
+os_disk: /dev/sda
+
+# Data disks for blockyard — XFS formatted
+blockyard_data_disks:
+  - device: /dev/sdb
+    mount: /data/disk0
+    label: byard-data0
+
+# Nomad node class — both roles
+nomad_node_class: "storage-compute"
+nomad_meta:
+  storage: "true"
+  compute: "true"
+  disk_total_tb: "3.6"

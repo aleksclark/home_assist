@@ -1,0 +1,30 @@
+---
+- name: Install consul
+  ansible.builtin.package:
+    name: consul
+    state: present
+  tags: [consul]
+
+- name: Create consul data directory
+  ansible.builtin.file:
+    path: /var/lib/consul
+    state: directory
+    owner: consul
+    group: consul
+    mode: "0750"
+
+- name: Deploy consul config
+  ansible.builtin.template:
+    src: consul.hcl.j2
+    dest: /etc/consul.d/consul.hcl
+    owner: consul
+    group: consul
+    mode: "0640"
+  notify: restart consul
+
+- name: Enable and start consul
+  ansible.builtin.systemd:
+    name: consul
+    enabled: true
+    state: started
+  tags: [consul]
