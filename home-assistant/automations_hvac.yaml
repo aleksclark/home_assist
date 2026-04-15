@@ -14,7 +14,7 @@
 # Schedule periods (applied to kitchen, amos, hallway):
 #   early_morning : 05:30 – 06:30  (min 68°F, max 75°F)
 #   morning       : 06:30 – 08:30  (min 63°F, max 70°F)
-#   daytime       : 08:30 – 21:00  (min 68°F, max 75°F)
+#   daytime       : 08:30 – 21:00  (min 65°F, max 74°F)
 #   overnight     : 21:00 – 05:30  (min 62°F, max 68°F)
 #
 # Della logic (kitchen, amos):
