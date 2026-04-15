@@ -74,15 +74,17 @@ pub fn start_server(state: SharedState, mac: String, port: u16) {
                 }
                 let state = state.clone();
                 let mac = mac.clone();
-                std::thread::Builder::new()
+                if let Err(e) = std::thread::Builder::new()
                     .name("api-client".into())
-                    .stack_size(16384)
+                    .stack_size(32768)
                     .spawn(move || {
                         if let Err(e) = handle_client_with_prefix(stream, state, &mac, &magic) {
                             log::warn!("API client disconnected: {:?}", e);
                         }
                     })
-                    .ok();
+                {
+                    log::error!("Failed to spawn client thread: {:?}", e);
+                }
             }
             Err(e) => log::warn!("Accept error: {:?}", e),
         }
@@ -95,17 +97,13 @@ fn handle_client_with_prefix(stream: TcpStream, state: SharedState, mac: &str, p
     handle_client_inner(stream, state, mac, reader)
 }
 
-fn handle_client(stream: TcpStream, state: SharedState, mac: &str) -> Result<()> {
-    handle_client_inner(stream, state, mac, FrameReader::new())
-}
-
 fn handle_client_inner(mut stream: TcpStream, state: SharedState, mac: &str, mut reader: FrameReader) -> Result<()> {
     stream.set_read_timeout(Some(Duration::from_secs(90)))?;
     stream.set_write_timeout(Some(Duration::from_secs(10)))?;
     stream.set_nodelay(true)?;
     log::info!("API client connected: {:?}", stream.peer_addr());
 
-    let mut read_buf = [0u8; 1024];
+    let mut read_buf = [0u8; 512];
 
     loop {
         match stream.read(&mut read_buf) {
@@ -175,16 +173,12 @@ fn build_hello_response() -> Vec<u8> {
 
 fn build_device_info(mac: &str) -> Vec<u8> {
     let mut buf = Vec::new();
-    encode_field_bool(1, false, &mut buf);
     encode_field_string(2, DEVICE_NAME, &mut buf);
     encode_field_string(3, mac, &mut buf);
     encode_field_string(4, ESPHOME_VERSION, &mut buf);
-    encode_field_string(5, "", &mut buf);
     encode_field_string(6, MODEL, &mut buf);
-    encode_field_bool(7, false, &mut buf);
     encode_field_string(8, "resphome.status-display", &mut buf);
     encode_field_string(9, "0.3.0", &mut buf);
-    encode_field_varint(10, 0, &mut buf);
     encode_field_string(12, MANUFACTURER, &mut buf);
     encode_field_string(13, FRIENDLY_NAME, &mut buf);
     buf
@@ -195,7 +189,9 @@ fn send_ha_subscriptions(stream: &mut TcpStream, state: &SharedState) -> Result<
     for (entity_id, attribute) in &subs {
         let mut buf = Vec::new();
         encode_field_string(1, entity_id, &mut buf);
-        encode_field_string(2, attribute, &mut buf);
+        if !attribute.is_empty() {
+            encode_field_string(2, attribute, &mut buf);
+        }
         send(stream, MSG_SUBSCRIBE_HA_STATE_RESP, &buf)?;
     }
     Ok(())

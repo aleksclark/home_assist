@@ -176,7 +176,7 @@ house:
     periods:
       early_morning: { time: "05:30-06:30", heat_min_f: 68, cool_max_f: 75 }
       morning:       { time: "06:30-08:30", heat_min_f: 63, cool_max_f: 70 }
-      daytime:       { time: "08:30-21:00", heat_min_f: 68, cool_max_f: 75 }
+      daytime:       { time: "08:30-21:00", heat_min_f: 65, cool_max_f: 74 }
       overnight:     { time: "21:00-05:30", heat_min_f: 62, cool_max_f: 68 }
     controlled_zones:
       kitchen:      { schedule: all_periods }

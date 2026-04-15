@@ -12,10 +12,10 @@
 #   climate.smart_thermostat  — Hallway thermostat (Matter) — heat_cool dual setpoint
 #
 # Schedule periods (driven by input_number helpers):
-#   early_morning : 05:30 – 06:30
-#   morning       : 06:30 – 08:30
-#   daytime       : 08:30 – 21:00
-#   overnight     : 21:00 – 05:30
+#   early_morning : 05:30 – 06:30  (default 68–75°F)
+#   morning       : 06:30 – 08:30  (default 63–70°F)
+#   daytime       : 08:30 – 21:00  (default 65–74°F)
+#   overnight     : 21:00 – 05:30  (default 62–68°F)
 #
 # Della logic (kitchen, amos):
 #   current_temp <= heat_min - deadband → heat mode, setpoint = heat_min (Celsius)
