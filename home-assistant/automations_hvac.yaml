@@ -2,30 +2,34 @@
 # HVAC Zone Automations
 # ---------------------------------------------------------------------------
 # Drives the 3 Della minisplits + hallway thermostat from a 4-period
-# daily schedule.  All temperatures in Fahrenheit (HA unit system).
-# Deployed via MCP save_automation API — this file is a reference copy.
+# daily schedule.  All setpoints in Fahrenheit; Della units receive
+# Celsius via direct MQTT (F→C conversion in templates).
 #
 # Thermostats:
-#   climate.kitchen_ac        — Della 18k BTU (MQTT)
-#   climate.amos_bedroom_ac   — Della 9k BTU  (MQTT)
-#   climate.livingroom_ac     — Della 12k BTU (MQTT) — thermal tracking only
+#   climate.kitchen_ac        — Della 18k BTU (MQTT, cmnd/minisplit_kitchen/)
+#   climate.amos_bedroom_ac   — Della 9k BTU  (MQTT, cmnd/minisplit_amos/)
+#   climate.livingroom_ac     — Della 12k BTU (MQTT, cmnd/minisplit_livingroom/) — thermal tracking only
 #   climate.smart_thermostat  — Hallway thermostat (Matter) — heat_cool dual setpoint
 #
-# Schedule periods (applied to kitchen, amos, hallway):
-#   early_morning : 05:30 – 06:30  (min 68°F, max 75°F)
-#   morning       : 06:30 – 08:30  (min 63°F, max 70°F)
-#   daytime       : 08:30 – 21:00  (min 68°F, max 75°F)
-#   overnight     : 21:00 – 05:30  (min 62°F, max 68°F)
+# Schedule periods (driven by input_number helpers):
+#   early_morning : 05:30 – 06:30
+#   morning       : 06:30 – 08:30
+#   daytime       : 08:30 – 21:00
+#   overnight     : 21:00 – 05:30
 #
 # Della logic (kitchen, amos):
-#   current_temp <= heat_min → heat mode, setpoint = heat_min
-#   current_temp >= cool_max → cool mode, setpoint = cool_max
-#   within band              → off
+#   current_temp <= heat_min - deadband → heat mode, setpoint = heat_min (Celsius)
+#   current_temp >= cool_max + deadband → cool mode, setpoint = cool_max (Celsius)
+#   within band                         → off
+#
+# Deadband: 1.5°F hysteresis prevents rapid cycling when temp oscillates
+# around a setpoint boundary.  The unit must overshoot by 1.5°F before
+# the automation switches modes.
 #
 # Hallway logic:
-#   heat_cool mode with target_temp_low / target_temp_high
+#   heat_cool mode with target_temp_low / target_temp_high (native HA, no MQTT)
 #
-# Livingroom: not occupied, kept within ±5°F of avg(kitchen, amos) temps.
+# Livingroom: not occupied, kept within ±band of avg(kitchen, amos) temps.
 #
 # IMPORTANT: Variables that depend on other variables (heat_min/cool_max
 # depend on now_minutes) must be in a SEPARATE variables block.  HA
@@ -40,7 +44,8 @@
   id: hvac_kitchen_schedule
   description: >
     Controls kitchen AC based on 4-period daily schedule.
-    Determines heat/cool mode from current temp vs schedule band.
+    Uses direct MQTT to avoid entity conflicts.
+    1.5°F deadband prevents rapid cycling.
   triggers:
     - trigger: time
       at: "05:30:00"
@@ -62,54 +67,61 @@
           {{ state_attr('climate.kitchen_ac', 'current_temperature') | float(0) }}
         now_minutes: >
           {{ now().hour * 60 + now().minute }}
+        deadband: 1.5
     - variables:
         heat_min: >
           {% if 330 <= now_minutes < 390 %}
-            {{ states('input_number.hvac_early_morning_heat_f') | float }}
+            {{ states('input_number.hvac_early_morning_heat_f') | int }}
           {% elif 390 <= now_minutes < 510 %}
-            {{ states('input_number.hvac_morning_heat_f') | float }}
+            {{ states('input_number.hvac_morning_heat_f') | int }}
           {% elif 510 <= now_minutes < 1260 %}
-            {{ states('input_number.hvac_daytime_heat_f') | float }}
+            {{ states('input_number.hvac_daytime_heat_f') | int }}
           {% else %}
-            {{ states('input_number.hvac_overnight_heat_f') | float }}
+            {{ states('input_number.hvac_overnight_heat_f') | int }}
           {% endif %}
         cool_max: >
           {% if 330 <= now_minutes < 390 %}
-            {{ states('input_number.hvac_early_morning_cool_f') | float }}
+            {{ states('input_number.hvac_early_morning_cool_f') | int }}
           {% elif 390 <= now_minutes < 510 %}
-            {{ states('input_number.hvac_morning_cool_f') | float }}
+            {{ states('input_number.hvac_morning_cool_f') | int }}
           {% elif 510 <= now_minutes < 1260 %}
-            {{ states('input_number.hvac_daytime_cool_f') | float }}
+            {{ states('input_number.hvac_daytime_cool_f') | int }}
           {% else %}
-            {{ states('input_number.hvac_overnight_cool_f') | float }}
+            {{ states('input_number.hvac_overnight_cool_f') | int }}
           {% endif %}
+    - variables:
+        cool_max_c: "{{ ((cool_max - 32) * 5 / 9) | round(0) | int }}"
+        heat_min_c: "{{ ((heat_min - 32) * 5 / 9) | round(0) | int }}"
     - choose:
         - conditions:
             - condition: template
-              value_template: "{{ current_temp <= heat_min }}"
+              value_template: "{{ current_temp <= (heat_min - deadband) }}"
           sequence:
-            - action: climate.set_temperature
-              target:
-                entity_id: climate.kitchen_ac
+            - action: mqtt.publish
               data:
-                temperature: "{{ heat_min }}"
-                hvac_mode: heat
+                topic: cmnd/minisplit_kitchen/ACMode
+                payload: heat
+            - action: mqtt.publish
+              data:
+                topic: cmnd/minisplit_kitchen/TargetTemperature
+                payload: "{{ heat_min_c }}"
         - conditions:
             - condition: template
-              value_template: "{{ current_temp >= cool_max }}"
+              value_template: "{{ current_temp >= (cool_max + deadband) }}"
           sequence:
-            - action: climate.set_temperature
-              target:
-                entity_id: climate.kitchen_ac
+            - action: mqtt.publish
               data:
-                temperature: "{{ cool_max }}"
-                hvac_mode: cool
+                topic: cmnd/minisplit_kitchen/ACMode
+                payload: cool
+            - action: mqtt.publish
+              data:
+                topic: cmnd/minisplit_kitchen/TargetTemperature
+                payload: "{{ cool_max_c }}"
       default:
-        - action: climate.set_hvac_mode
-          target:
-            entity_id: climate.kitchen_ac
+        - action: mqtt.publish
           data:
-            hvac_mode: "off"
+            topic: cmnd/minisplit_kitchen/ACMode
+            payload: "off"
 
 # ===========================================================================
 #  AMOS BEDROOM — schedule-driven heat/cool band
@@ -119,7 +131,8 @@
   id: hvac_amos_schedule
   description: >
     Controls Amos bedroom AC based on 4-period daily schedule.
-    Determines heat/cool mode from current temp vs schedule band.
+    Uses direct MQTT to avoid entity conflicts.
+    1.5°F deadband prevents rapid cycling.
   triggers:
     - trigger: time
       at: "05:30:00"
@@ -141,54 +154,61 @@
           {{ state_attr('climate.amos_bedroom_ac', 'current_temperature') | float(0) }}
         now_minutes: >
           {{ now().hour * 60 + now().minute }}
+        deadband: 1.5
     - variables:
         heat_min: >
           {% if 330 <= now_minutes < 390 %}
-            {{ states('input_number.hvac_early_morning_heat_f') | float }}
+            {{ states('input_number.hvac_early_morning_heat_f') | int }}
           {% elif 390 <= now_minutes < 510 %}
-            {{ states('input_number.hvac_morning_heat_f') | float }}
+            {{ states('input_number.hvac_morning_heat_f') | int }}
           {% elif 510 <= now_minutes < 1260 %}
-            {{ states('input_number.hvac_daytime_heat_f') | float }}
+            {{ states('input_number.hvac_daytime_heat_f') | int }}
           {% else %}
-            {{ states('input_number.hvac_overnight_heat_f') | float }}
+            {{ states('input_number.hvac_overnight_heat_f') | int }}
           {% endif %}
         cool_max: >
           {% if 330 <= now_minutes < 390 %}
-            {{ states('input_number.hvac_early_morning_cool_f') | float }}
+            {{ states('input_number.hvac_early_morning_cool_f') | int }}
           {% elif 390 <= now_minutes < 510 %}
-            {{ states('input_number.hvac_morning_cool_f') | float }}
+            {{ states('input_number.hvac_morning_cool_f') | int }}
           {% elif 510 <= now_minutes < 1260 %}
-            {{ states('input_number.hvac_daytime_cool_f') | float }}
+            {{ states('input_number.hvac_daytime_cool_f') | int }}
           {% else %}
-            {{ states('input_number.hvac_overnight_cool_f') | float }}
+            {{ states('input_number.hvac_overnight_cool_f') | int }}
           {% endif %}
+    - variables:
+        cool_max_c: "{{ ((cool_max - 32) * 5 / 9) | round(0) | int }}"
+        heat_min_c: "{{ ((heat_min - 32) * 5 / 9) | round(0) | int }}"
     - choose:
         - conditions:
             - condition: template
-              value_template: "{{ current_temp <= heat_min }}"
+              value_template: "{{ current_temp <= (heat_min - deadband) }}"
           sequence:
-            - action: climate.set_temperature
-              target:
-                entity_id: climate.amos_bedroom_ac
+            - action: mqtt.publish
               data:
-                temperature: "{{ heat_min }}"
-                hvac_mode: heat
+                topic: cmnd/minisplit_amos/ACMode
+                payload: heat
+            - action: mqtt.publish
+              data:
+                topic: cmnd/minisplit_amos/TargetTemperature
+                payload: "{{ heat_min_c }}"
         - conditions:
             - condition: template
-              value_template: "{{ current_temp >= cool_max }}"
+              value_template: "{{ current_temp >= (cool_max + deadband) }}"
           sequence:
-            - action: climate.set_temperature
-              target:
-                entity_id: climate.amos_bedroom_ac
+            - action: mqtt.publish
               data:
-                temperature: "{{ cool_max }}"
-                hvac_mode: cool
+                topic: cmnd/minisplit_amos/ACMode
+                payload: cool
+            - action: mqtt.publish
+              data:
+                topic: cmnd/minisplit_amos/TargetTemperature
+                payload: "{{ cool_max_c }}"
       default:
-        - action: climate.set_hvac_mode
-          target:
-            entity_id: climate.amos_bedroom_ac
+        - action: mqtt.publish
           data:
-            hvac_mode: "off"
+            topic: cmnd/minisplit_amos/ACMode
+            payload: "off"
 
 # ===========================================================================
 #  HALLWAY — schedule-driven heat_cool dual setpoint
@@ -199,6 +219,7 @@
   description: >
     Controls hallway thermostat (Matter) based on 4-period daily schedule.
     Uses heat_cool mode with dual setpoints for min/max band.
+    The thermostat handles its own deadband internally.
   triggers:
     - trigger: time
       at: "05:30:00"
@@ -221,23 +242,23 @@
     - variables:
         heat_min: >
           {% if 330 <= now_minutes < 390 %}
-            {{ states('input_number.hvac_early_morning_heat_f') | float }}
+            {{ states('input_number.hvac_early_morning_heat_f') | int }}
           {% elif 390 <= now_minutes < 510 %}
-            {{ states('input_number.hvac_morning_heat_f') | float }}
+            {{ states('input_number.hvac_morning_heat_f') | int }}
           {% elif 510 <= now_minutes < 1260 %}
-            {{ states('input_number.hvac_daytime_heat_f') | float }}
+            {{ states('input_number.hvac_daytime_heat_f') | int }}
           {% else %}
-            {{ states('input_number.hvac_overnight_heat_f') | float }}
+            {{ states('input_number.hvac_overnight_heat_f') | int }}
           {% endif %}
         cool_max: >
           {% if 330 <= now_minutes < 390 %}
-            {{ states('input_number.hvac_early_morning_cool_f') | float }}
+            {{ states('input_number.hvac_early_morning_cool_f') | int }}
           {% elif 390 <= now_minutes < 510 %}
-            {{ states('input_number.hvac_morning_cool_f') | float }}
+            {{ states('input_number.hvac_morning_cool_f') | int }}
           {% elif 510 <= now_minutes < 1260 %}
-            {{ states('input_number.hvac_daytime_cool_f') | float }}
+            {{ states('input_number.hvac_daytime_cool_f') | int }}
           {% else %}
-            {{ states('input_number.hvac_overnight_cool_f') | float }}
+            {{ states('input_number.hvac_overnight_cool_f') | int }}
           {% endif %}
     - action: climate.set_temperature
       target:
@@ -250,16 +271,22 @@
 # ===========================================================================
 #  LIVINGROOM — thermal tracking (not occupied)
 # ===========================================================================
-# Keeps livingroom within ±5°F of avg(kitchen sensor, amos sensor).
+# Keeps livingroom within ±band of avg(kitchen sensor, amos sensor).
 # Uses BLE thermometers for reference, livingroom AC's built-in sensor
 # for the room temp.
+#
+# Availability: both BLE sensors must be reporting. If either goes
+# unavailable, the automation skips (condition gate) rather than
+# computing with stale/zero values.
 
 - alias: "HVAC Livingroom - Thermal Tracking"
   id: hvac_livingroom_thermal_tracking
   description: >
-    Keeps livingroom within 5°F of the average of kitchen + amos room
+    Keeps livingroom within ±band of the average of kitchen + amos room
     temperatures. Livingroom is not directly occupied but must stay
-    thermally coupled to adjacent zones.
+    thermally coupled to adjacent zones. Uses direct MQTT.
+    1.5°F deadband prevents rapid cycling.
+    Skips if either BLE sensor is unavailable.
   triggers:
     - trigger: time_pattern
       minutes: "/10"
@@ -285,6 +312,7 @@
           {{ states('input_number.hvac_livingroom_thermal_band_f') | float(5) }}
         lr_temp: >
           {{ state_attr('climate.livingroom_ac', 'current_temperature') | float(0) }}
+        deadband: 1.5
     - variables:
         avg_temp: >
           {{ ((kitchen_temp + amos_temp) / 2) | round(1) }}
@@ -292,33 +320,39 @@
           {{ ((kitchen_temp + amos_temp) / 2 - band) | round(1) }}
         target_high: >
           {{ ((kitchen_temp + amos_temp) / 2 + band) | round(1) }}
+    - variables:
+        target_high_c: "{{ ((target_high - 32) * 5 / 9) | round(0) | int }}"
+        target_low_c: "{{ ((target_low - 32) * 5 / 9) | round(0) | int }}"
     - choose:
         - conditions:
             - condition: template
-              value_template: "{{ lr_temp <= target_low }}"
+              value_template: "{{ lr_temp <= (target_low - deadband) }}"
           sequence:
-            - action: climate.set_temperature
-              target:
-                entity_id: climate.livingroom_ac
+            - action: mqtt.publish
               data:
-                temperature: "{{ target_low }}"
-                hvac_mode: heat
+                topic: cmnd/minisplit_livingroom/ACMode
+                payload: heat
+            - action: mqtt.publish
+              data:
+                topic: cmnd/minisplit_livingroom/TargetTemperature
+                payload: "{{ target_low_c }}"
         - conditions:
             - condition: template
-              value_template: "{{ lr_temp >= target_high }}"
+              value_template: "{{ lr_temp >= (target_high + deadband) }}"
           sequence:
-            - action: climate.set_temperature
-              target:
-                entity_id: climate.livingroom_ac
+            - action: mqtt.publish
               data:
-                temperature: "{{ target_high }}"
-                hvac_mode: cool
+                topic: cmnd/minisplit_livingroom/ACMode
+                payload: cool
+            - action: mqtt.publish
+              data:
+                topic: cmnd/minisplit_livingroom/TargetTemperature
+                payload: "{{ target_high_c }}"
       default:
-        - action: climate.set_hvac_mode
-          target:
-            entity_id: climate.livingroom_ac
+        - action: mqtt.publish
           data:
-            hvac_mode: "off"
+            topic: cmnd/minisplit_livingroom/ACMode
+            payload: "off"
 
 # ===========================================================================
 #  SAFETY — turn everything off if master switch is disabled
@@ -326,6 +360,10 @@
 
 - alias: "HVAC Master Disable - All Off"
   id: hvac_master_disable
+  description: >
+    Turns off all HVAC units when master enable is toggled off.
+    Uses both climate.set_hvac_mode (for HA entity state) and
+    direct MQTT (to ensure Della units actually stop).
   triggers:
     - trigger: state
       entity_id: input_boolean.hvac_master_enable
@@ -340,3 +378,15 @@
           - climate.smart_thermostat
       data:
         hvac_mode: "off"
+    - action: mqtt.publish
+      data:
+        topic: cmnd/minisplit_kitchen/ACMode
+        payload: "off"
+    - action: mqtt.publish
+      data:
+        topic: cmnd/minisplit_amos/ACMode
+        payload: "off"
+    - action: mqtt.publish
+      data:
+        topic: cmnd/minisplit_livingroom/ACMode
+        payload: "off"

@@ -72,7 +72,7 @@ input_number:
     min: 65
     max: 85
     step: 1
-    initial: 75
+    initial: 73
     unit_of_measurement: "°F"
     icon: mdi:thermometer-chevron-down
 

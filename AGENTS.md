@@ -118,12 +118,7 @@ esphome dashboard esphome/
 | BLE Scanners (6x)   | ESP32-C3      | Office, Kitchen, Livingroom, Bedroom, Bathroom, Carport | ESPHome API    |
 | BLE Thermometers (4x)| Xiaomi MiT2  | Kitchen, A&K BR, Amos, Red Room                     | BLE via proxies  |
 | Della Mini Splits    | RTL87x0C      | _various_                                            | MQTT (TCL)       |
-
-### Work in Progress
-
-| Device          | Type     | Notes                         |
-|-----------------|----------|-------------------------------|
-| Ecobee          | Thermostat | HA integration setup pending |
+| Hallway Thermostat   | Matter         | Hallway (serves central HVAC)                       | Matter           |
 
 ### Planned
 

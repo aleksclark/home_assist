@@ -112,8 +112,12 @@ house:
         ak_bedroom: high
         girls_bathroom: low
         exterior: low
-      hvac_devices: [] # served by central system
-      sensors: []
+      hvac_devices: []  # served by hallway smart_thermostat (Matter)
+      sensors:
+        - id: hallway_thermostat
+          type: matter_thermostat
+          entity_id: climate.smart_thermostat
+          note: built-in temp sensor on the thermostat
 
     - id: ak_bedroom
       floor: 1
@@ -157,16 +161,16 @@ house:
       sensors: []
 
   shared_systems:
-    - id: central_ac
+    - id: central_hvac
       type: central
       capabilities: [heat, cool, fan]
       btu: 30_000
       serves_zones: [hallway, girls_bedroom, girls_bathroom, ak_bedroom]
       thermostat:
         location: hallway
-        id: ecobee_main
-        model: ECB701
-        entity_id: climate.my_ecobee_2
+        id: smart_thermostat
+        protocol: matter
+        entity_id: climate.smart_thermostat
 
   schedule:
     periods:
