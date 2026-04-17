@@ -1,0 +1,8 @@
+hvac_schedule_period:
+  name: HVAC Schedule Period
+  options:
+    - early_morning
+    - morning
+    - daytime
+    - overnight
+  icon: mdi:clock-outline
