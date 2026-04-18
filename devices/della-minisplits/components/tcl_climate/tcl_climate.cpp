@@ -181,7 +181,11 @@ void TCLClimate::parse_response_(uint8_t *buf, int len) {
 
   // --- Climate mode ---
   climate::ClimateMode new_mode;
-  if (d.power == 0) {
+  if (this->heat_cool_mode_) {
+    // In heat_cool mode, always report HEAT_COOL to HA regardless of
+    // what the hardware is actually doing (heat or cool).
+    new_mode = climate::CLIMATE_MODE_HEAT_COOL;
+  } else if (d.power == 0) {
     new_mode = climate::CLIMATE_MODE_OFF;
   } else {
     switch (d.mode) {
@@ -232,6 +236,13 @@ void TCLClimate::parse_response_(uint8_t *buf, int len) {
   if (std::abs(this->current_temperature - new_current) > 0.1f) {
     this->current_temperature = new_current;
     changed = true;
+  }
+
+  // In heat_cool mode, re-evaluate on every temp update
+  if (this->heat_cool_mode_) {
+    this->target_temperature_low = this->heat_cool_low_;
+    this->target_temperature_high = this->heat_cool_high_;
+    this->apply_heat_cool_logic_();
   }
 
   // --- Vertical swing position ---
@@ -336,10 +347,12 @@ void TCLClimate::update() {
 climate::ClimateTraits TCLClimate::traits() {
   auto traits = climate::ClimateTraits();
   traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE);
+  traits.add_feature_flags(climate::CLIMATE_SUPPORTS_TWO_POINT_TARGET_TEMPERATURE);
   traits.set_supported_modes({
       climate::CLIMATE_MODE_OFF,
       climate::CLIMATE_MODE_COOL,
       climate::CLIMATE_MODE_HEAT,
+      climate::CLIMATE_MODE_HEAT_COOL,
       climate::CLIMATE_MODE_FAN_ONLY,
       climate::CLIMATE_MODE_DRY,
       climate::CLIMATE_MODE_AUTO,
@@ -365,6 +378,50 @@ void TCLClimate::control(const climate::ClimateCall &call) {
   if (!this->got_first_response_) {
     ESP_LOGW(TAG, "No response from AC yet, ignoring command");
     return;
+  }
+
+  if (call.get_mode().has_value()) {
+    auto m = *call.get_mode();
+    if (m == climate::CLIMATE_MODE_HEAT_COOL) {
+      // Enter dual-setpoint mode — don't send to hardware yet,
+      // apply_heat_cool_logic_() will pick heat or cool on next poll.
+      this->heat_cool_mode_ = true;
+      this->mode = climate::CLIMATE_MODE_HEAT_COOL;
+      // Accept any setpoints provided in the same call
+      if (call.get_target_temperature_low().has_value())
+        this->heat_cool_low_ = *call.get_target_temperature_low();
+      if (call.get_target_temperature_high().has_value())
+        this->heat_cool_high_ = *call.get_target_temperature_high();
+      this->target_temperature_low = this->heat_cool_low_;
+      this->target_temperature_high = this->heat_cool_high_;
+      this->publish_state();
+      // Immediately evaluate which sub-mode to use
+      this->apply_heat_cool_logic_();
+      return;
+    } else {
+      // Explicit mode selection exits heat_cool
+      this->heat_cool_mode_ = false;
+    }
+  }
+
+  // Update dual setpoints even if mode wasn't changed (slider adjustment)
+  if (this->heat_cool_mode_) {
+    bool changed = false;
+    if (call.get_target_temperature_low().has_value()) {
+      this->heat_cool_low_ = *call.get_target_temperature_low();
+      changed = true;
+    }
+    if (call.get_target_temperature_high().has_value()) {
+      this->heat_cool_high_ = *call.get_target_temperature_high();
+      changed = true;
+    }
+    if (changed) {
+      this->target_temperature_low = this->heat_cool_low_;
+      this->target_temperature_high = this->heat_cool_high_;
+      this->publish_state();
+      this->apply_heat_cool_logic_();
+      return;
+    }
   }
 
   GetResponse working{};
@@ -439,6 +496,63 @@ void TCLClimate::control(const climate::ClimateCall &call) {
         break;
     }
   }
+
+  this->build_set_cmd_(&working);
+  this->pending_send_ = true;
+}
+
+// --- Heat/cool auto-switching logic ---
+
+void TCLClimate::apply_heat_cool_logic_() {
+  if (!this->heat_cool_mode_ || !this->got_first_response_)
+    return;
+
+  float temp = this->current_temperature;
+  if (std::isnan(temp))
+    return;
+
+  auto &resp = this->last_resp_.data;
+  float midpoint = (this->heat_cool_low_ + this->heat_cool_high_) / 2.0f;
+
+  // Determine desired hardware mode
+  uint8_t want_mode;
+  float want_temp;
+  if (temp < this->heat_cool_low_) {
+    want_mode = 0x04;  // heat
+    want_temp = this->heat_cool_low_;
+  } else if (temp > this->heat_cool_high_) {
+    want_mode = 0x01;  // cool
+    want_temp = this->heat_cool_high_;
+  } else {
+    // In the deadband — keep current direction, or pick based on midpoint
+    if (resp.power && (resp.mode == 0x01 || resp.mode == 0x04)) {
+      // Already running heat or cool — let it ride
+      return;
+    }
+    // Not running or in a different mode — pick based on side of midpoint
+    if (temp <= midpoint) {
+      want_mode = 0x04;  // heat
+      want_temp = this->heat_cool_low_;
+    } else {
+      want_mode = 0x01;  // cool
+      want_temp = this->heat_cool_high_;
+    }
+  }
+
+  // Check if hardware already matches
+  uint8_t want_temp_raw = (uint8_t) want_temp - 16;
+  if (resp.power == 1 && resp.mode == want_mode && resp.temp == want_temp_raw)
+    return;
+
+  ESP_LOGD(TAG, "heat_cool: temp=%.1f low=%.0f high=%.0f -> %s @ %.0f",
+           temp, this->heat_cool_low_, this->heat_cool_high_,
+           want_mode == 0x04 ? "heat" : "cool", want_temp);
+
+  GetResponse working{};
+  memcpy(working.raw, this->last_resp_.raw, GET_RESP_LEN);
+  working.data.power = 1;
+  working.data.mode = want_mode;
+  working.data.temp = want_temp_raw;
 
   this->build_set_cmd_(&working);
   this->pending_send_ = true;
