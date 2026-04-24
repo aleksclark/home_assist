@@ -13,6 +13,9 @@ job "traefik" {
       port "dashboard" {
         static = 8081
       }
+      port "metrics" {
+        static = 8082
+      }
     }
 
     volume "traefik-data" {
@@ -76,6 +79,8 @@ job "traefik" {
                         - "*.fleet.clark.team"
             dashboard:
               address: ":8081"
+            metrics:
+              address: ":8082"
 
           serversTransport:
             insecureSkipVerify: true
@@ -99,6 +104,10 @@ job "traefik" {
             file:
               filename: /etc/traefik/dynamic.yml
               watch: true
+
+          metrics:
+            prometheus:
+              entryPoint: metrics
 
           log:
             level: INFO

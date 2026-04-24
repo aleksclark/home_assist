@@ -82,14 +82,25 @@ receivers:
         mute_process_user_error: true
       processes: {}
 
-  # Docker container stats
+  # Docker container stats — with Nomad service tagging
   docker_stats:
     endpoint: unix:///var/run/docker.sock
     collection_interval: 30s
     timeout: 20s
     api_version: "1.40"
+    # Nomad env vars → metric resource attributes
+    env_vars_to_metric_labels:
+      NOMAD_JOB_NAME: nomad.job.name
+      NOMAD_TASK_NAME: nomad.task.name
+      NOMAD_GROUP_NAME: nomad.group.name
+      NOMAD_NAMESPACE: nomad.namespace
+    # Nomad Docker labels → metric resource attributes (after Nomad config deploy)
+    container_labels_to_metric_labels:
+      com.hashicorp.nomad.job_name: service.name
+      com.hashicorp.nomad.task_name: nomad.task.name
+      com.hashicorp.nomad.node_name: host.name
 
-  # Nomad metrics
+  # Nomad + infrastructure service metrics
   prometheus:
     config:
       scrape_configs:
@@ -99,9 +110,23 @@ receivers:
             format: ["prometheus"]
           static_configs:
             - targets: ["$${env:NODE_IP}:4646"]
+              labels:
+                service.name: nomad
+        - job_name: traefik
+          static_configs:
+            - targets: ["127.0.0.1:8082"]
+              labels:
+                service.name: traefik
+        - job_name: coredns
+          static_configs:
+            - targets: ["127.0.0.1:9153"]
+              labels:
+                service.name: coredns
         - job_name: otel-agent
           static_configs:
             - targets: ["127.0.0.1:8889"]
+              labels:
+                service.name: otel-agent
 
   # Docker container logs via file
   filelog:
@@ -110,10 +135,34 @@ receivers:
     include_file_name: false
     include_file_path: true
     operators:
-      - id: container-parser
-        type: container
-        format: docker
-        add_metadata_from_filepath: false
+      # Parse Docker JSON log line: {"log":"...","stream":"...","attrs":{"tag":"..."},"time":"..."}
+      - id: docker-json
+        type: json_parser
+        timestamp:
+          parse_from: attributes.time
+          layout: '2006-01-02T15:04:05.999999999Z'
+          layout_type: gotime
+      # Move "log" field to body
+      - id: log-to-body
+        type: move
+        from: attributes.log
+        to: body
+      # Move "stream" to standard attribute
+      - id: stream-to-attr
+        type: move
+        from: attributes.stream
+        to: attributes["log.iostream"]
+      # Remove parsed time from attributes
+      - id: remove-time
+        type: remove
+        field: attributes.time
+      # Extract container ID from file path for correlation
+      - id: extract-container-id
+        type: regex_parser
+        regex: '/var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/'
+        parse_from: attributes["log.file.path"]
+        parse_to: resource
+        on_error: send
 
 processors:
   batch:
@@ -126,8 +175,24 @@ processors:
       hostname_sources: [os]
   memory_limiter:
     check_interval: 5s
-    limit_mib: 256
-    spike_limit_mib: 64
+    limit_mib: 300
+    spike_limit_mib: 80
+  # Extract Nomad service name from Docker container tag in logs
+  # Docker daemon adds attrs.tag = container name (e.g. "coredns-2724eb3a-...")
+  # Nomad container names follow: {task_name}-{alloc_id}
+  transform/logs:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - set(resource.attributes["service.name"], attributes["attrs"]["tag"])
+            where attributes["attrs"]["tag"] != nil
+          - replace_pattern(resource.attributes["service.name"],
+              "^([a-zA-Z0-9_-]+)-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$$",
+              "$$1")
+            where resource.attributes["service.name"] != nil
+          - delete_key(attributes, "attrs")
+            where attributes["attrs"] != nil
 
 exporters:
   otlp:
@@ -160,20 +225,20 @@ service:
       receivers: [otlp, hostmetrics, docker_stats]
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlp]
-    metrics/nomad:
+    metrics/infra:
       receivers: [prometheus]
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlp]
     logs:
       receivers: [otlp, filelog]
-      processors: [memory_limiter, resourcedetection, batch]
+      processors: [memory_limiter, resourcedetection, transform/logs, batch]
       exporters: [otlp]
         YAML
       }
 
       resources {
-        cpu    = 200
-        memory = 256
+        cpu    = 300
+        memory = 320
       }
 
       service {

@@ -305,7 +305,6 @@ job "signoz" {
           echo "Starting collector..."
           exec /signoz-otel-collector \
             --config=/etc/otel-collector-config.yaml \
-            --manager-config=/etc/manager-config.yaml \
             --copy-path=/var/tmp/collector-config.yaml
         EOF
       }

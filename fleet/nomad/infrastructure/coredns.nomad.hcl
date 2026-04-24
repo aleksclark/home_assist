@@ -7,6 +7,9 @@ job "coredns" {
       port "dns" {
         static = 53
       }
+      port "metrics" {
+        static = 9153
+      }
     }
 
     task "coredns" {
@@ -30,6 +33,7 @@ job "coredns" {
             file /etc/coredns/fleet.clark.team.db
             log
             errors
+            prometheus :9153
           }
 
           . {
