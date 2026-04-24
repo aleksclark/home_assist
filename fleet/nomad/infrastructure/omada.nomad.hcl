@@ -25,7 +25,7 @@ job "omada" {
       driver = "docker"
 
       config {
-        image        = "mbentley/omada-controller:5.13"
+        image        = "mbentley/omada-controller:6.2"
         network_mode = "host"
 
         volumes = [
