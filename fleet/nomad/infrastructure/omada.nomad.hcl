@@ -77,7 +77,7 @@ job "omada" {
         port         = "manage"
         tags         = [
           "traefik.enable=true",
-          "traefik.http.routers.omada.rule=Host(`omada.fleet.local`)",
+          "traefik.http.routers.omada.rule=Host(`omada.fleet.lan`)",
           "traefik.http.routers.omada.entrypoints=websecure",
           "traefik.http.routers.omada.tls=true",
           "traefik.http.services.omada.loadbalancer.server.scheme=https",
