@@ -56,8 +56,8 @@ job "omada" {
 
       resources {
         cpu    = 500
-        memory     = 1536
-        memory_max = 2048
+        memory     = 2560
+        memory_max = 3072
       }
 
       # Omada takes ~45s to start (embedded MongoDB + Java)
