@@ -238,7 +238,11 @@ job "signoz" {
         SIGNOZ_ALERTMANAGER_PROVIDER                   = "signoz"
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN           = "tcp://127.0.0.1:9000"
         SIGNOZ_SQLSTORE_SQLITE_PATH                    = "/var/lib/signoz/signoz.db"
-        SIGNOZ_TOKENIZER_JWT_SECRET                    = "fleet-signoz-secret-change-me"
+        SIGNOZ_TOKENIZER_JWT_SECRET="fleet-...e-me"
+        SIGNOZ_USER_ROOT_ENABLED                       = "true"
+        SIGNOZ_USER_ROOT_EMAIL                         = "aleks@clark.team"
+        SIGNOZ_USER_ROOT_PASSWORD                      = "Fleet2026!Monitor"
+        SIGNOZ_USER_ROOT_ORG_NAME                      = "Clark Fleet"
       }
 
       resources {
