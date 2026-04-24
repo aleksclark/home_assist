@@ -11,18 +11,19 @@
 - Running: Docker (docker-compose), ddclient, iDrive backup
 
 ### Fleet Nodes (Nomad targets)
-| Node | IP | CPU | RAM | Disks | MooseFS Role |
-|------|-----|-----|-----|-------|-------------|
-| node-1 | 192.168.0.23 | Ivy Bridge | 8GB | 1x 3.6TB | master + chunkserver |
-| node-2 | 192.168.0.24 | Ivy Bridge | 16GB | 2x 3.6TB | chunkserver + metalogger |
-| node-3 | 192.168.0.89 | Ivy Bridge | 8GB | 1x 3.6TB + 2x 1.8TB | chunkserver |
-| **node-4** | **192.168.0.3** | **Broadwell Xeon** | **32GB** | **4x 5.5TB** | **chunkserver (future)** |
+| Node | IP | CPU | RAM | Disks | Network | MooseFS Role |
+|------|-----|-----|-----|-------|---------|-------------|
+| node-1 | 192.168.0.23 | Ivy Bridge | 8GB | 1x 3.6TB + 2x 1.8TB | bond0 (1G+2.5G ALB) | master + chunkserver |
+| node-2 | 192.168.0.24 | Ivy Bridge | 16GB | 2x 3.6TB + 1x 1.8TB | bond0 (2.5G ALB) | chunkserver + metalogger |
+| node-3 | 192.168.0.89 | Ivy Bridge | 8GB | 1x 3.6TB + 2x 1.8TB | bond0 (2.5G ALB) | chunkserver |
+| **node-4** | **192.168.0.3** | **Broadwell Xeon** | **32GB** | **4x 5.5TB** | **TBD** | **chunkserver (future)** |
 
 ### Distributed Storage
 - MooseFS 4.58.4 mounted at `/mnt/moosefs` via FUSE
 - Directories: `/family` (2CP), `/media` (1CP), `/tmp` (1CP)
-- Data migration from NAS ZFS → MooseFS in progress
-- After node-4 joins: total raw capacity ~38TB (current ~18.5TB + node-4 ~22TB)
+- ✅ Data migration from NAS ZFS → MooseFS complete (family, media, tmp)
+- Current cluster: ~26TB raw, ~10TB available
+- After node-4 joins: total raw capacity ~48TB (current ~26TB + node-4 ~22TB)
 
 ---
 
@@ -96,7 +97,7 @@ the NAS, then converting the NAS last.
 
 1. Install Nomad on all 3 fleet nodes (node-1 as Nomad server, node-2/3 as clients)
 2. MooseFS FUSE mount on all fleet nodes at `/mnt/moosefs`
-3. Complete the rsync from NAS ZFS → MooseFS (family, media, tmp)
+3. ✅ Complete the rsync from NAS ZFS → MooseFS (family, media, tmp) — DONE
 4. Verify data integrity: spot-check file counts and sizes match
 5. Create `/mnt/moosefs/configs/` directory with 2CP storage class
 6. Copy ALL service config dirs from NAS to MooseFS:
@@ -219,9 +220,9 @@ Once confident the fleet is stable:
 
 **Post-conversion capacity**:
 - MooseFS gains ~22TB raw from node-4's 4x 5.5TB drives
-- Total cluster: ~40TB raw
-- With 2CP: ~20TB usable for replicated data
-- With 1CP: ~40TB usable for unreplicated data
+- Total cluster: ~48TB raw
+- With 2CP: ~24TB usable for replicated data
+- With 1CP: ~48TB usable for unreplicated data
 
 ### Phase 7: Post-conversion optimization
 
@@ -250,6 +251,13 @@ Estimated RAM per node:
 - node-2: ~4-5GB services + chunkserver = ~6GB / 16GB ← room to grow
 - node-3: ~3-4GB services + chunkserver = ~5GB / 8GB
 - node-4: ~6-8GB services (Jellyfin+PhotoPrism+MariaDB) + chunkserver + metalogger = ~10GB / 32GB ← room to grow
+
+Storage per node (MooseFS chunkserver):
+- node-1: 1x 3.6TB + 2x 1.8TB = ~7.2TB raw
+- node-2: 2x 3.6TB + 1x 1.8TB = ~9.0TB raw
+- node-3: 1x 3.6TB + 2x 1.8TB = ~7.2TB raw
+- node-4: 4x 5.5TB = ~22TB raw
+- **Total: ~45.4TB raw**
 
 ---
 
@@ -388,6 +396,6 @@ nomad/
 1. **Consul or Nomad built-in service discovery?** For 4 nodes, Nomad built-in + static IPs is likely sufficient.
 2. **MariaDB on SSD or MooseFS?** Recommend node-4 SSD after conversion.
 3. **Omada controller L2 requirement** — which fleet node is on the same L2 as the APs?
-4. **Media storage class after node-4**: upgrade from 1CP to 2CP? With ~40TB raw, 2CP for everything gives ~20TB usable vs current ~6.4TB available.
+4. **Media storage class after node-4**: upgrade from 1CP to 2CP? With ~48TB raw, 2CP for everything gives ~24TB usable vs current ~10TB available.
 5. **iDrive replacement**: MooseFS-level backup strategy? Or reinstall iDrive on node-4?
 6. **Cloudflared tunnel token** — needs to be regenerated/updated for fleet.
