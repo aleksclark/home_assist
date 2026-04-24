@@ -13,6 +13,9 @@ job "omada" {
 
     network {
       mode = "host"
+      port "manage" {
+        static = 8043
+      }
     }
 
     volume "omada-data" {
@@ -70,18 +73,15 @@ job "omada" {
 
       service {
         name         = "omada"
-        tags         = ["infrastructure", "omada"]
-        address_mode = "driver"
-        port         = "8043"
-
-        check {
-          type             = "tcp"
-          port             = "8043"
-          interval         = "30s"
-          timeout          = "5s"
-          address_mode     = "driver"
-          initial_status   = "passing"
-        }
+        provider     = "nomad"
+        port         = "manage"
+        tags         = [
+          "traefik.enable=true",
+          "traefik.http.routers.omada.rule=Host(`omada.fleet.local`)",
+          "traefik.http.routers.omada.entrypoints=websecure",
+          "traefik.http.routers.omada.tls=true",
+          "traefik.http.services.omada.loadbalancer.server.scheme=https",
+        ]
       }
     }
   }
