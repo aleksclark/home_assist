@@ -15,7 +15,7 @@ job "traefik" {
       }
     }
 
-    volume "traefik-certs" {
+    volume "traefik-data" {
       type      = "host"
       source    = "moosefs-configs"
       read_only = false
@@ -31,8 +31,19 @@ job "traefik" {
         volumes = [
           "local/traefik.yml:/etc/traefik/traefik.yml:ro",
           "local/dynamic.yml:/etc/traefik/dynamic.yml:ro",
-          "/mnt/moosefs/configs/traefik:/certs",
+          "/mnt/moosefs/configs/traefik:/data",
         ]
+      }
+
+      # Inject Cloudflare API token from Nomad variables
+      template {
+        destination = "secrets/env.env"
+        env         = true
+        data        = <<-EOF
+          {{ with nomadVar "nomad/jobs/traefik" }}
+          CF_DNS_API_TOKEN={{ .cloudflare_dns_api_token }}
+          {{ end }}
+        EOF
       }
 
       # Static config
@@ -57,12 +68,28 @@ job "traefik" {
             websecure:
               address: ":443"
               http:
-                tls: {}
+                tls:
+                  certResolver: letsencrypt
+                  domains:
+                    - main: fleet.clark.team
+                      sans:
+                        - "*.fleet.clark.team"
             dashboard:
               address: ":8081"
 
           serversTransport:
             insecureSkipVerify: true
+
+          certificatesResolvers:
+            letsencrypt:
+              acme:
+                email: aleks@clark.team
+                storage: /data/acme.json
+                dnsChallenge:
+                  provider: cloudflare
+                  resolvers:
+                    - "1.1.1.1:53"
+                    - "1.0.0.1:53"
 
           providers:
             nomad:
@@ -73,14 +100,6 @@ job "traefik" {
               filename: /etc/traefik/dynamic.yml
               watch: true
 
-          # Self-signed default cert (we'll generate one)
-          tls:
-            stores:
-              default:
-                defaultCertificate:
-                  certFile: /certs/fleet.crt
-                  keyFile: /certs/fleet.key
-
           log:
             level: INFO
 
@@ -88,12 +107,29 @@ job "traefik" {
         EOF
       }
 
-      # Dynamic config for any manual routes
+      # Dynamic config for dashboard route + wildcard cert router
       template {
         destination = "local/dynamic.yml"
         data        = <<-EOF
-          # Skip TLS verification when proxying to backend services
           http:
+            routers:
+              dashboard:
+                rule: "Host(`traefik.fleet.clark.team`)"
+                service: api@internal
+                entryPoints:
+                  - dashboard
+              wildcard-cert:
+                rule: "HostRegexp(`^.+\\.fleet\\.clark\\.team$`)"
+                service: noop@internal
+                entryPoints:
+                  - websecure
+                tls:
+                  certResolver: letsencrypt
+                  domains:
+                    - main: fleet.clark.team
+                      sans:
+                        - "*.fleet.clark.team"
+                priority: 1
             serversTransports:
               insecureSkipVerify:
                 insecureSkipVerify: true
