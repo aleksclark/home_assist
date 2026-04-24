@@ -41,7 +41,7 @@ job "traefik" {
         data        = <<-EOF
           api:
             dashboard: true
-            insecure: true
+            insecure: false
 
           ping:
             entryPoint: dashboard
