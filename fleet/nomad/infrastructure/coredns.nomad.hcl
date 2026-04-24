@@ -19,15 +19,15 @@ job "coredns" {
 
         volumes = [
           "local/Corefile:/etc/coredns/Corefile:ro",
-          "local/clark.team.db:/etc/coredns/clark.team.db:ro",
+          "local/fleet.clark.team.db:/etc/coredns/fleet.clark.team.db:ro",
         ]
       }
 
       template {
         destination = "local/Corefile"
         data        = <<-EOF
-          clark.team {
-            file /etc/coredns/clark.team.db
+          fleet.clark.team {
+            file /etc/coredns/fleet.clark.team.db
             log
             errors
           }
@@ -42,17 +42,17 @@ job "coredns" {
       }
 
       template {
-        destination = "local/clark.team.db"
+        destination = "local/fleet.clark.team.db"
         data        = <<-EOF
-          $ORIGIN clark.team.
-          @   3600 IN SOA  ns.clark.team. admin.clark.team. (
+          $ORIGIN fleet.clark.team.
+          @   3600 IN SOA  ns.fleet.clark.team. admin.fleet.clark.team. (
                            2025042301 ; serial
                            3600       ; refresh
                            600        ; retry
                            86400      ; expire
                            300        ; minimum TTL
                            )
-          @   3600 IN NS   ns.clark.team.
+          @   3600 IN NS   ns.fleet.clark.team.
 
           ; Fleet node names
           node-1   IN A  192.168.0.23
