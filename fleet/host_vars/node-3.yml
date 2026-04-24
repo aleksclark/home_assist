@@ -1,6 +1,6 @@
 # node-3 — Dell OptiPlex 7020
 # Bootstrapped: 2026-04-10
-# Role: storage + compute
+# Role: MooseFS chunkserver, compute
 # Boot: BIOS (no UEFI)
 
 ansible_host: 192.168.0.89
@@ -11,24 +11,28 @@ machine_ram_gb: 8
 machine_gpu: false
 
 # OS disk — btrfs root (320GB WD HDD)
-os_disk: /dev/sdb
+os_disk: /dev/sdc
 
-# Data disks for blockyard — XFS formatted
-blockyard_data_disks:
-  - device: /dev/sda
-    mount: /data/disk0
-    label: byard-data0
-  - device: /dev/sdb
-    mount: /data/disk1
-    label: byard-data1
+# Data disks — MooseFS chunkserver (XFS)
+moosefs_data_disks:
+  - mount: /data/disk0
+    uuid: ""  # WD 3.6TB — sda
+    size_tb: 3.6
+  - mount: /data/disk1
+    uuid: ""  # IBM 1.8TB — sdb
+    size_tb: 1.8
+  - mount: /data/disk2
+    uuid: ""  # IBM 1.8TB — sdd
+    size_tb: 1.8
 
-# Nomad node class — both roles
+# Network
+network_bond: true
+network_primary_nic: eno1       # Intel 1G (cable removed)
+network_secondary_nic: enp4s0   # Realtek 2.5G
+
+# Nomad
 nomad_node_class: "storage-compute"
-
-# Blockyard cluster seed — join via node-1
-blockyard_seed_nodes:
-  - "192.168.0.23"
 nomad_meta:
   storage: "true"
   compute: "true"
-  disk_total_tb: "5.4"
+  disk_total_tb: "7.2"

@@ -4,19 +4,25 @@ region     = "{{ nomad_region }}"
 data_dir   = "/var/lib/nomad"
 log_level  = "INFO"
 
-bind_addr = "{{ '{{' }} GetInterfaceIP \"{{ nomad_bind_interface }}\" {{ '}}' }}"
+bind_addr = "{{ '{{' }} GetInterfaceIP \"bond0\" {{ '}}' }}"
+
+advertise {
+  http = "{{ '{{' }} GetInterfaceIP \"bond0\" {{ '}}' }}"
+  rpc  = "{{ '{{' }} GetInterfaceIP \"bond0\" {{ '}}' }}"
+  serf = "{{ '{{' }} GetInterfaceIP \"bond0\" {{ '}}' }}"
+}
 
 {% if nomad_server | default(false) %}
 server {
   enabled          = true
-  bootstrap_expect = {{ nomad_server_hosts | length | default(1) }}
+  bootstrap_expect = 1
 }
 {% endif %}
 
 client {
   enabled = true
 
-{% if nomad_node_class is defined %}
+{% if nomad_node_class is defined and nomad_node_class != "" %}
   node_class = "{{ nomad_node_class }}"
 {% endif %}
 
@@ -28,19 +34,46 @@ client {
   }
 {% endif %}
 
-{% if blockyard_data_disks is defined and blockyard_data_disks | length > 0 %}
-  # Advertise available storage
-  host_volume "blockyard-data" {
-    path      = "{{ blockyard_data_disks[0].mount }}"
+{% if nomad_server_hosts | default([]) | length > 0 and not (nomad_server | default(false)) %}
+  servers = [{% for h in nomad_server_hosts %}"{{ hostvars[h].ansible_host }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+{% endif %}
+
+  # MooseFS FUSE mount — shared distributed storage
+  host_volume "moosefs" {
+    path      = "/mnt/moosefs"
     read_only = false
   }
-{% endif %}
+
+  # MooseFS configs directory — service state (2CP)
+  host_volume "moosefs-configs" {
+    path      = "/mnt/moosefs/configs"
+    read_only = false
+  }
+
+  # MooseFS media directory — media files (1CP)
+  host_volume "moosefs-media" {
+    path      = "/mnt/moosefs/media"
+    read_only = false
+  }
+
+  # MooseFS family directory — family data (2CP)
+  host_volume "moosefs-family" {
+    path      = "/mnt/moosefs/family"
+    read_only = false
+  }
+
+  # Local data disk — for latency-sensitive workloads (MariaDB)
+  host_volume "local-data" {
+    path      = "/data/disk0"
+    read_only = false
+  }
 }
 
-# Consul integration
-consul {
-  address = "127.0.0.1:8500"
-}
+{% if nomad_server | default(false) %}
+# Single-server cluster — clients join via this node
+{% else %}
+# Client-only — join the server
+{% endif %}
 
 plugin "docker" {
   config {
@@ -48,6 +81,10 @@ plugin "docker" {
     volumes {
       enabled = true
     }
+    # Allow host network mode for HA, matter-server, omada
+    allow_caps = ["audit_write", "chown", "dac_override", "fowner", "fsetid",
+                  "kill", "mknod", "net_bind_service", "net_raw", "setfcap",
+                  "setgid", "setpcap", "setuid", "sys_chroot", "net_admin"]
   }
 }
 

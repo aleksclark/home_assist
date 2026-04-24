@@ -1,6 +1,6 @@
 # node-2 — Dell OptiPlex 9010
 # Bootstrapped: 2026-04-10
-# Role: storage + compute
+# Role: MooseFS chunkserver + metalogger, heavy compute
 # Boot: BIOS (no UEFI)
 
 ansible_host: 192.168.0.24
@@ -13,22 +13,28 @@ machine_gpu: false
 # OS disk — btrfs root (Crucial M4 SSD)
 os_disk: /dev/sdb
 
-# Data disks for blockyard — XFS formatted
-blockyard_data_disks:
-  - device: /dev/sda
-    mount: /data/disk0
-    label: byard-data0
-  - device: /dev/sdc
-    mount: /data/disk1
-    label: byard-data1
+# Data disks — MooseFS chunkserver (XFS)
+moosefs_data_disks:
+  - mount: /data/disk0
+    uuid: ""  # WD 3.6TB — sda
+    size_tb: 3.6
+  - mount: /data/disk1
+    uuid: ""  # WD 3.6TB — sdc
+    size_tb: 3.6
+  - mount: /data/disk2
+    uuid: "634b6306-752e-4a53-af11-6757f2f6acec"
+    size_tb: 1.8
 
-# Nomad node class — both roles
+# Network
+network_bond: true
+network_primary_nic: eno1       # Intel 1G (cable removed)
+network_secondary_nic: enp2s0   # Realtek 2.5G
+
+# Nomad
 nomad_node_class: "storage-compute"
-
-# Blockyard cluster seed — join via node-1
-blockyard_seed_nodes:
-  - "192.168.0.23"
 nomad_meta:
   storage: "true"
   compute: "true"
-  disk_total_tb: "7.2"
+  moosefs_metalogger: "true"
+  disk_total_tb: "9.0"
+  ram_gb: "16"

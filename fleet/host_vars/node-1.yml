@@ -1,6 +1,6 @@
 # node-1 — Dell Inspiron 660
 # Bootstrapped: 2026-04-10
-# Role: storage + compute
+# Role: Nomad server + MooseFS master + chunkserver
 
 ansible_host: 192.168.0.23
 
@@ -9,18 +9,31 @@ machine_cpu_cores: 4
 machine_ram_gb: 8
 machine_gpu: false
 
-# OS disk — btrfs root
+# OS disk — btrfs root (1TB WD)
 os_disk: /dev/sda
 
-# Data disks for blockyard — XFS formatted
-blockyard_data_disks:
-  - device: /dev/sdb
-    mount: /data/disk0
-    label: byard-data0
+# Data disks — MooseFS chunkserver (XFS)
+moosefs_data_disks:
+  - mount: /data/disk0
+    uuid: "467f0416-9b6b-4f32-8431-26f5cbfb6088"
+    size_tb: 3.6
+  - mount: /data/disk1
+    uuid: "6cf656c4-9335-497d-88ed-c0e3dea7c4d0"
+    size_tb: 1.8
+  - mount: /data/disk2
+    uuid: "b103768c-f4b2-4c56-b335-f2b43c4eea0e"
+    size_tb: 1.8
 
-# Nomad node class — both roles
+# Network
+network_bond: true
+network_primary_nic: enp5s0    # Realtek 1G
+network_secondary_nic: enp4s0  # Realtek 2.5G
+
+# Nomad
+nomad_server: true
 nomad_node_class: "storage-compute"
 nomad_meta:
   storage: "true"
   compute: "true"
-  disk_total_tb: "3.6"
+  moosefs_master: "true"
+  disk_total_tb: "7.2"

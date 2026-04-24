@@ -16,12 +16,45 @@
     - /var/lib/nomad
     - /etc/nomad.d
 
+- name: Ensure MooseFS mount point exists
+  ansible.builtin.file:
+    path: /mnt/moosefs
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure MooseFS configs directory exists
+  ansible.builtin.file:
+    path: /mnt/moosefs/configs
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Deploy nomad config
   ansible.builtin.template:
     src: nomad.hcl.j2
     dest: /etc/nomad.d/nomad.hcl
     mode: "0640"
   notify: restart nomad
+
+- name: Remove consul dependency from nomad service
+  ansible.builtin.lineinfile:
+    path: /usr/lib/systemd/system/nomad.service
+    regexp: 'consul\.service'
+    line: 'Wants=network-online.target'
+    backrefs: true
+  notify:
+    - reload systemd
+    - restart nomad
+
+- name: Disable consul service
+  ansible.builtin.systemd:
+    name: consul
+    enabled: false
+    state: stopped
+  ignore_errors: true
 
 - name: Enable and start nomad
   ansible.builtin.systemd:

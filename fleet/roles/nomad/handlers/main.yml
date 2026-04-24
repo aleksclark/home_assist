@@ -3,3 +3,7 @@
   ansible.builtin.systemd:
     name: nomad
     state: restarted
+
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
