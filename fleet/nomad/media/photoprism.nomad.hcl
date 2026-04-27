@@ -40,7 +40,7 @@ job "photoprism" {
         ]
 
         volumes = [
-          "/mnt/moosefs/configs/photoprism/database:/var/lib/mysql",
+          "/mnt/moosefs/family/photoprism/database:/var/lib/mysql",
         ]
       }
 
@@ -73,8 +73,8 @@ job "photoprism" {
         ]
 
         volumes = [
-          "/mnt/moosefs/configs/photoprism/storage:/photoprism/storage",
-          "/mnt/moosefs/media/photos:/photoprism/originals",
+          "/mnt/moosefs/family/photoprism/storage:/photoprism/storage",
+          "/mnt/moosefs/family/photos:/photoprism/originals",
         ]
       }
 
@@ -87,6 +87,7 @@ job "photoprism" {
         PHOTOPRISM_LOG_LEVEL      = "info"
         PHOTOPRISM_DISABLE_TLS    = "true"
         PHOTOPRISM_DEFAULT_TLS    = "false"
+        PHOTOPRISM_DISABLE_CHOWN  = "true"
         PHOTOPRISM_HTTP_COMPRESSION = "gzip"
 
         # Database — MariaDB on localhost (host networking)
