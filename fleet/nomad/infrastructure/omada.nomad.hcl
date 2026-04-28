@@ -18,12 +18,6 @@ job "omada" {
       }
     }
 
-    volume "omada-data" {
-      type      = "host"
-      source    = "moosefs-configs"
-      read_only = false
-    }
-
     task "omada-controller" {
       driver = "docker"
 
@@ -32,8 +26,8 @@ job "omada" {
         network_mode = "host"
 
         volumes = [
-          "/mnt/moosefs/configs/omada/data:/opt/tplink/EAPController/data",
-          "/mnt/moosefs/configs/omada/logs:/opt/tplink/EAPController/logs",
+          "/home/aleks/omada_data:/opt/tplink/EAPController/data",
+          "/home/aleks/omada_logs:/opt/tplink/EAPController/logs",
         ]
       }
 
@@ -59,8 +53,7 @@ job "omada" {
 
       resources {
         cpu    = 500
-        memory     = 2560
-        memory_max = 3072
+        memory = 2560
       }
 
       # Omada takes ~45s to start (embedded MongoDB + Java)
