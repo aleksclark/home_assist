@@ -8,7 +8,7 @@ use ha_display_kit::{
     Region, Theme,
 };
 
-use crate::state::{SharedState, NUM_SENSORS, NUM_THERMOSTATS};
+use crate::state::{BbStatus, SharedState, NUM_SENSORS, NUM_THERMOSTATS};
 
 const SCREEN_W: u32 = 320;
 const SCREEN_H: u32 = 240;
@@ -54,6 +54,23 @@ fn sensor_y() -> i32 {
 
 fn sensor_region() -> Region {
     Region::new(0, sensor_y() - 6, SCREEN_W, ROW_H as u32)
+}
+
+fn bb_status_y() -> i32 {
+    sensor_y() + ROW_H + 4
+}
+
+fn bb_status_region() -> Region {
+    Region::new(0, bb_status_y() - 6, SCREEN_W, ROW_H as u32)
+}
+
+fn bb_status_color(status: &BbStatus) -> Rgb565 {
+    match status {
+        BbStatus::Unknown => Rgb565::new(8, 16, 8),     // dim green (same as off)
+        BbStatus::Away => Rgb565::new(31, 48, 0),       // yellow
+        BbStatus::Working => Rgb565::new(0, 63, 0),     // green
+        BbStatus::Playing => Rgb565::new(20, 12, 31),   // purple
+    }
 }
 
 fn format_temp(raw: &str) -> String {
@@ -155,6 +172,7 @@ pub struct Dashboard {
     prev_rows: [RowSnapshot; NUM_THERMOSTATS],
     prev_sensors: [SensorSnapshot; NUM_SENSORS],
     prev_band: String,
+    prev_bb_status: BbStatus,
     prev_generation: u32,
     first_draw: bool,
 }
@@ -168,6 +186,7 @@ impl Dashboard {
             prev_rows: Default::default(),
             prev_sensors: Default::default(),
             prev_band: String::new(),
+            prev_bb_status: BbStatus::Unknown,
             prev_generation: 0,
             first_draw: true,
         }
@@ -229,6 +248,11 @@ impl Dashboard {
         }
         if force || sensor_changed || gen != self.prev_generation {
             self.draw_sensors(d, &st.sensors, force)?;
+        }
+
+        if force || st.bb_status != self.prev_bb_status {
+            self.draw_bb_status(d, &st.bb_status, force)?;
+            self.prev_bb_status = st.bb_status.clone();
         }
 
         self.prev_generation = gen;
@@ -323,5 +347,19 @@ impl Dashboard {
         }
 
         Ok(())
+    }
+
+    fn draw_bb_status<D: DrawTarget<Color = Rgb565>>(
+        &self, d: &mut D, status: &BbStatus, force: bool,
+    ) -> Result<()> {
+        let t = &self.theme;
+        let bg = t.bg;
+        if force {
+            fill_rect(d, &bb_status_region(), bg)?;
+        }
+        let y = bb_status_y() + 6;
+        let color = bb_status_color(status);
+        let label = pad_right(&format!("BB Status: {}", status.label()), 40);
+        txt(d, &label, Point::new(COL_NAME, y), style_small_bg(color, bg))
     }
 }

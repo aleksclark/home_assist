@@ -3,6 +3,34 @@ use std::sync::{Arc, Mutex};
 pub const NUM_THERMOSTATS: usize = 4;
 pub const NUM_SENSORS: usize = 2;
 
+#[derive(Clone, PartialEq)]
+pub enum BbStatus {
+    Unknown,
+    Away,
+    Working,
+    Playing,
+}
+
+impl BbStatus {
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "away" => Self::Away,
+            "working" => Self::Working,
+            "playing" => Self::Playing,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Unknown => "---",
+            Self::Away => "Away",
+            Self::Working => "Working",
+            Self::Playing => ":) Playing",
+        }
+    }
+}
+
 pub struct Thermostat {
     pub name: &'static str,
     pub entity_id: &'static str,
@@ -122,6 +150,7 @@ pub struct DisplayState {
     pub thermostats: [Thermostat; NUM_THERMOSTATS],
     pub sensors: [ExtraSensor; NUM_SENSORS],
     pub schedule: ScheduleBand,
+    pub bb_status: BbStatus,
     generation: u32,
 }
 
@@ -183,6 +212,7 @@ impl DisplayState {
                 },
             ],
             schedule: ScheduleBand::new(),
+            bb_status: BbStatus::Unknown,
             generation: 0,
         }
     }
@@ -209,6 +239,7 @@ impl DisplayState {
         for eid in &SCHEDULE_ENTITIES {
             subs.push((eid.to_string(), String::new()));
         }
+        subs.push(("input_text.bb_status".to_string(), String::new()));
         subs
     }
 
@@ -242,6 +273,14 @@ impl DisplayState {
                     }
                     return;
                 }
+            }
+            if entity_id == "input_text.bb_status" {
+                let new_status = BbStatus::from_str(value);
+                if new_status != self.bb_status {
+                    self.bb_status = new_status;
+                    self.generation += 1;
+                }
+                return;
             }
         }
     }

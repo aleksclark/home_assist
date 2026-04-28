@@ -1,0 +1,14 @@
+# BB Status — workstation presence for status display
+# Add to configuration.yaml:  input_text: !include input_text.yaml
+# Or merge into existing input_text section.
+#
+# The bb-status-reporter service on the workstation publishes state
+# via the REST API (POST /api/states/input_text.bb_status).
+# The status-display firmware subscribes to this entity via ESPHome Native API.
+#
+# States: away | working | playing
+
+bb_status:
+  name: BB Status
+  initial: "away"
+  max: 20
