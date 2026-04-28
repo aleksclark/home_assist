@@ -5,7 +5,7 @@ job "signoz" {
   group "signoz" {
     count = 1
 
-    # Pin to node-2
+    # Pin to node-2 — has 16GB RAM, best fit for ClickHouse + ZK
     constraint {
       attribute = "${node.unique.name}"
       value     = "node-2"
@@ -122,6 +122,31 @@ job "signoz" {
       }
     }
 
+    # ─── Cleanup stale ClickHouse lock file ───
+    # ClickHouse writes a status/lock file that persists on MooseFS after
+    # unclean shutdown (crash, node reboot, FUSE blip). Without this cleanup,
+    # ClickHouse crash-loops with exit code 76.
+    task "cleanup-ch-lock" {
+      driver = "docker"
+      lifecycle {
+        hook = "prestart"
+      }
+
+      config {
+        image   = "busybox:latest"
+        command = "rm"
+        args    = ["-f", "/data/status"]
+        volumes = [
+          "/mnt/moosefs/configs/signoz/clickhouse-data:/data",
+        ]
+      }
+
+      resources {
+        cpu    = 50
+        memory = 32
+      }
+    }
+
     # ─── ClickHouse ───
 
     task "clickhouse" {
@@ -140,6 +165,7 @@ job "signoz" {
           "/mnt/moosefs/configs/signoz/clickhouse/users.xml:/etc/clickhouse-server/users.xml:ro",
           "/mnt/moosefs/configs/signoz/clickhouse/custom-function.xml:/etc/clickhouse-server/custom-function.xml:ro",
           "/mnt/moosefs/configs/signoz/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro",
+          "/mnt/moosefs/configs/signoz/clickhouse/performance.xml:/etc/clickhouse-server/config.d/performance.xml:ro",
           "/mnt/moosefs/configs/signoz/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts",
           "/mnt/moosefs/configs/signoz/clickhouse-data:/var/lib/clickhouse",
         ]
@@ -155,8 +181,8 @@ job "signoz" {
       }
 
       resources {
-        cpu    = 1000
-        memory = 2048
+        cpu    = 3000
+        memory = 6144
       }
     }
 
