@@ -181,8 +181,8 @@ job "signoz" {
       }
 
       resources {
-        cpu    = 3000
-        memory = 6144
+        cpu    = 2000
+        memory = 3072
       }
     }
 
