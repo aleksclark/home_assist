@@ -317,18 +317,34 @@ void TCLClimate::loop() {
 void TCLClimate::process_rx_() {
   uint8_t rx_buf[MAX_RX_LEN];
   int avail = this->available();
-  if (avail > 0 && !this->rx_logged_) {
+  if (avail > 0) {
     ESP_LOGD(TAG, "RX: %d bytes available", avail);
-    this->rx_logged_ = true;
-  }
-
-  while (this->available()) {
-    uint8_t byte;
-    this->read_byte(&byte);
-    int len = this->frame_byte_((int) byte, rx_buf, MAX_RX_LEN);
-    if (len > 0) {
-      ESP_LOGD(TAG, "RX frame complete: %d bytes, hdr=0x%02X type=0x%02X", len, rx_buf[0], len > 3 ? rx_buf[3] : 0);
-      this->parse_response_(rx_buf, len);
+    // Log first few raw bytes
+    uint8_t peek[16];
+    int to_peek = avail < 16 ? avail : 16;
+    for (int i = 0; i < to_peek; i++) {
+      this->read_byte(&peek[i]);
+    }
+    ESP_LOGD(TAG, "RX raw: %02X %02X %02X %02X %02X %02X %02X %02X",
+             to_peek > 0 ? peek[0] : 0, to_peek > 1 ? peek[1] : 0,
+             to_peek > 2 ? peek[2] : 0, to_peek > 3 ? peek[3] : 0,
+             to_peek > 4 ? peek[4] : 0, to_peek > 5 ? peek[5] : 0,
+             to_peek > 6 ? peek[6] : 0, to_peek > 7 ? peek[7] : 0);
+    for (int i = 0; i < to_peek; i++) {
+      int len = this->frame_byte_((int) peek[i], rx_buf, MAX_RX_LEN);
+      if (len > 0) {
+        ESP_LOGD(TAG, "RX frame complete: %d bytes, hdr=0x%02X type=0x%02X", len, rx_buf[0], len > 3 ? rx_buf[3] : 0);
+        this->parse_response_(rx_buf, len);
+      }
+    }
+    while (this->available()) {
+      uint8_t byte;
+      this->read_byte(&byte);
+      int len = this->frame_byte_((int) byte, rx_buf, MAX_RX_LEN);
+      if (len > 0) {
+        ESP_LOGD(TAG, "RX frame complete: %d bytes, hdr=0x%02X type=0x%02X", len, rx_buf[0], len > 3 ? rx_buf[3] : 0);
+        this->parse_response_(rx_buf, len);
+      }
     }
   }
 }
@@ -338,6 +354,7 @@ void TCLClimate::update() {
     this->pending_send_ = false;
     this->send_set_cmd_();
   } else {
+    ESP_LOGD(TAG, "Sending poll, avail=%d", this->available());
     this->send_poll_();
   }
 }
