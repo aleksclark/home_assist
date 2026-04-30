@@ -1,0 +1,448 @@
+--- a/src/driver/drv_tclAC.c
++++ b/src/driver/drv_tclAC.c
+@@ -27,6 +27,26 @@
+ int g_disp = 1;
+ int g_gen = 0;
+ 
++// Dual-setpoint (heat_cool) state
++bool g_heat_cool_mode = false;
++float g_heat_cool_low = 18.0f;   // heat-to target (°C)
++float g_heat_cool_high = 25.0f;  // cool-to target (°C)
++
++// Publish throttle: only publish when values change or every N seconds.
++// This prevents the MQTT stack from being overwhelmed with 10 publishes/sec
++// on the resource-constrained RTL87x0C, which causes watchdog resets.
++#define TCL_FORCE_PUBLISH_INTERVAL 10
++static int tcl_publish_countdown = 0;
++static int tcl_prev_current_temp = -999;
++static int tcl_prev_target_low = -999;
++static int tcl_prev_target_high = -999;
++static climateMode_e tcl_prev_mode = -1;
++static fanMode_e tcl_prev_fan = -1;
++static int tcl_prev_buzzer = -1;
++static int tcl_prev_disp = -1;
++static int tcl_prev_swingH = -1;
++static int tcl_prev_swingV = -1;
++
+ typedef enum {
+ 	CLIMATE_MODE_OFF,
+ 	CLIMATE_MODE_COOL,
+@@ -36,6 +56,12 @@
+ 	CLIMATE_MODE_HEAT_COOL,
+ 	CLIMATE_MODE_AUTO,
+ } climateMode_e;
++
++// Forward declarations for globals defined later in this file
++// (needed because OBK_SetClimate and TCL_ApplyHeatCoolLogic reference them)
++climateMode_e g_mode = CLIMATE_MODE_OFF;
++float current_temperature;
++
+ void build_set_cmd(get_cmd_resp_t * get_cmd_resp) {
+ 	memcpy(m_set_cmd.raw, set_cmd_base, sizeof(m_set_cmd.raw));
+ 
+@@ -305,43 +331,36 @@
+ 	build_set_cmd(&get_cmd_resp);
+ 	ready_to_send_set_cmd_flag = true;
+ }
++void TCL_ApplyHeatCoolLogic(void);
+ void OBK_SetClimate(climateMode_e climate_mode)
+ {
+-	get_cmd_resp_t get_cmd_resp = { 0 };
+-	memcpy(get_cmd_resp.raw, m_get_cmd_resp.raw, sizeof(get_cmd_resp.raw));
+-
+ 	ADDLOG_WARN(LOG_FEATURE_ENERGYMETER, "User set mode %i", climate_mode);
+ 
+ 	if (climate_mode == CLIMATE_MODE_OFF) {
++		g_heat_cool_mode = false;
++		get_cmd_resp_t get_cmd_resp = { 0 };
++		memcpy(get_cmd_resp.raw, m_get_cmd_resp.raw, sizeof(get_cmd_resp.raw));
+ 		get_cmd_resp.data.power = 0x00;
++		build_set_cmd(&get_cmd_resp);
++		ready_to_send_set_cmd_flag = true;
++		return;
+ 	}
+-	else {
++
++	if (climate_mode == CLIMATE_MODE_FAN_ONLY) {
++		g_heat_cool_mode = false;
++		get_cmd_resp_t get_cmd_resp = { 0 };
++		memcpy(get_cmd_resp.raw, m_get_cmd_resp.raw, sizeof(get_cmd_resp.raw));
+ 		get_cmd_resp.data.power = 0x01;
+-		switch (climate_mode) {
+-		case CLIMATE_MODE_COOL:
+-			get_cmd_resp.data.mode = 0x01;
+-			break;
+-		case CLIMATE_MODE_DRY:
+-			get_cmd_resp.data.mode = 0x03;
+-			break;
+-		case CLIMATE_MODE_FAN_ONLY:
+-			get_cmd_resp.data.mode = 0x02;
+-			break;
+-		case CLIMATE_MODE_HEAT:
+-		case CLIMATE_MODE_HEAT_COOL:
+-			get_cmd_resp.data.mode = 0x04;
+-			break;
+-		case CLIMATE_MODE_AUTO:
+-			get_cmd_resp.data.mode = 0x05;
+-			break;
+-		case CLIMATE_MODE_OFF:
+-			get_cmd_resp.data.power = 0x00;
+-			break;
+-		}
++		get_cmd_resp.data.mode = 0x02;  // fan_only
++		build_set_cmd(&get_cmd_resp);
++		ready_to_send_set_cmd_flag = true;
++		return;
+ 	}
+ 
+-	build_set_cmd(&get_cmd_resp);
+-	ready_to_send_set_cmd_flag = true;
++	// Everything else (including heat_cool) enters dual-setpoint mode
++	g_heat_cool_mode = true;
++	g_mode = CLIMATE_MODE_HEAT_COOL;
++	TCL_ApplyHeatCoolLogic();
+ }
+ void write_array(byte *b, int s) {
+ 	for (int i = 0; i < s; i++) {
+@@ -355,12 +374,8 @@
+ 	climateMode_e mode;
+ } climateModeMap[] = {
+ 	{"off", CLIMATE_MODE_OFF},
+-	{"cool", CLIMATE_MODE_COOL},
+-	{"dry", CLIMATE_MODE_DRY},
+ 	{"fan_only", CLIMATE_MODE_FAN_ONLY},
+-	{"heat", CLIMATE_MODE_HEAT},
+-	{"heatcool", CLIMATE_MODE_HEAT_COOL},
+-	{"auto", CLIMATE_MODE_AUTO}
++	{"heat_cool", CLIMATE_MODE_HEAT_COOL},
+ };
+ 
+ climateMode_e parseClimate(const char *s) {
+@@ -486,7 +501,6 @@
+ }
+ bool is_changed;
+ float target_temperature;
+-float current_temperature;
+ void set_target_temperature(float newTemp) {
+ 	if (target_temperature == newTemp)
+ 		return;
+@@ -494,7 +508,6 @@
+ 	target_temperature = newTemp;
+ }
+ fanMode_e g_fanMode;
+-climateMode_e g_mode = CLIMATE_MODE_OFF;
+ void set_mode(climateMode_e mode) {
+ 	if (g_mode == mode)
+ 		return;
+@@ -549,12 +562,11 @@
+ 					(int)m_get_cmd_resp.data.power, (int)m_get_cmd_resp.data.fan,
+ 					(int)m_get_cmd_resp.data.turbo, (int)m_get_cmd_resp.data.mute);
+ 
++				// Only 3 modes exposed: off, heat_cool, fan_only
++				// All heating/cooling modes map to heat_cool
+ 				if (m_get_cmd_resp.data.power == 0x00) set_mode(CLIMATE_MODE_OFF);
+-				else if (m_get_cmd_resp.data.mode == 0x01) set_mode(CLIMATE_MODE_COOL);
+-				else if (m_get_cmd_resp.data.mode == 0x03) set_mode(CLIMATE_MODE_DRY);
+ 				else if (m_get_cmd_resp.data.mode == 0x02) set_mode(CLIMATE_MODE_FAN_ONLY);
+-				else if (m_get_cmd_resp.data.mode == 0x04) set_mode(CLIMATE_MODE_HEAT);
+-				else if (m_get_cmd_resp.data.mode == 0x05) set_mode(CLIMATE_MODE_AUTO);
++				else set_mode(CLIMATE_MODE_HEAT_COOL);
+ 
+ 				if (m_get_cmd_resp.data.turbo) set_custom_fan_mode((FAN_TURBO));
+ 				else if (m_get_cmd_resp.data.mute) set_custom_fan_mode((FAN_MUTE));
+@@ -600,6 +612,12 @@
+ 				ADDLOG_WARN(LOG_FEATURE_ENERGYMETER, "mode %02X", m_get_cmd_resp.data.mode);
+ 				set_target_temperature((float)(m_get_cmd_resp.data.temp + 16));
+ 				set_current_temperature(curr_temp);
++
++				// Re-evaluate heat_cool switching on every temp update
++				if (g_heat_cool_mode) {
++					TCL_ApplyHeatCoolLogic();
++				}
++
+ 				if (is_changed)
+ 				{
+ 					//publish_state();
+@@ -610,6 +628,58 @@
+ 	}
+ }
+ 
++// Heat/cool auto-switching logic — ported from ESPHome tcl_climate component.
++// Compares current_temperature against the two setpoints and sends the
++// appropriate single-setpoint heat or cool command to the hardware.
++void TCL_ApplyHeatCoolLogic(void) {
++	if (!g_heat_cool_mode)
++		return;
++
++	float temp = current_temperature;
++	float midpoint = (g_heat_cool_low + g_heat_cool_high) / 2.0f;
++
++	uint8_t want_mode;
++	float want_temp;
++
++	if (temp < g_heat_cool_low) {
++		want_mode = 0x04;  // heat
++		want_temp = g_heat_cool_low;
++	} else if (temp > g_heat_cool_high) {
++		want_mode = 0x01;  // cool
++		want_temp = g_heat_cool_high;
++	} else {
++		// In the deadband — keep current direction, or pick based on midpoint
++		if (m_get_cmd_resp.data.power && (m_get_cmd_resp.data.mode == 0x01 || m_get_cmd_resp.data.mode == 0x04)) {
++			// Already running heat or cool — let it ride
++			return;
++		}
++		if (temp <= midpoint) {
++			want_mode = 0x04;  // heat
++			want_temp = g_heat_cool_low;
++		} else {
++			want_mode = 0x01;  // cool
++			want_temp = g_heat_cool_high;
++		}
++	}
++
++	uint8_t want_temp_raw = (uint8_t)want_temp - 16;
++	if (m_get_cmd_resp.data.power == 1 && m_get_cmd_resp.data.mode == want_mode && m_get_cmd_resp.data.temp == want_temp_raw)
++		return;
++
++	ADDLOG_WARN(LOG_FEATURE_ENERGYMETER, "heat_cool: temp=%.1f low=%.0f high=%.0f -> %s @ %.0f",
++		temp, g_heat_cool_low, g_heat_cool_high,
++		want_mode == 0x04 ? "heat" : "cool", want_temp);
++
++	get_cmd_resp_t working = { 0 };
++	memcpy(working.raw, m_get_cmd_resp.raw, sizeof(working.raw));
++	working.data.power = 1;
++	working.data.mode = want_mode;
++	working.data.temp = want_temp_raw;
++
++	build_set_cmd(&working);
++	ready_to_send_set_cmd_flag = true;
++}
++
+ static commandResult_t CMD_ACMode(const void* context, const char* cmd, const char* args, int cmdFlags) {
+ 	int mode;
+ 
+@@ -714,6 +784,24 @@
+ 	OBK_SetTargetTemperature(target);
+ 	return CMD_RES_OK;
+ }
++static commandResult_t CMD_TargetTempLow(const void* context, const char* cmd, const char* args, int cmdFlags) {
++	Tokenizer_TokenizeString(args, 0);
++	g_heat_cool_low = Tokenizer_GetArgFloat(0);
++	ADDLOG_WARN(LOG_FEATURE_ENERGYMETER, "TargetTempLow set to %.1f", g_heat_cool_low);
++	if (g_heat_cool_mode) {
++		TCL_ApplyHeatCoolLogic();
++	}
++	return CMD_RES_OK;
++}
++static commandResult_t CMD_TargetTempHigh(const void* context, const char* cmd, const char* args, int cmdFlags) {
++	Tokenizer_TokenizeString(args, 0);
++	g_heat_cool_high = Tokenizer_GetArgFloat(0);
++	ADDLOG_WARN(LOG_FEATURE_ENERGYMETER, "TargetTempHigh set to %.1f", g_heat_cool_high);
++	if (g_heat_cool_mode) {
++		TCL_ApplyHeatCoolLogic();
++	}
++	return CMD_RES_OK;
++}
+ static commandResult_t CMD_SwingV(const void* context, const char* cmd, const char* args, int cmdFlags) {
+ 	int mode;
+ 
+@@ -797,20 +885,70 @@
+ 	//cmddetail:"fn":"CMD_Display","file":"driver/drv_tclAC.c","requires":"",
+ 	//cmddetail:"examples":""}
+ 	CMD_RegisterCommand("Display", CMD_Display, NULL);
++
++	//cmddetail:{"name":"TargetTempLow","args":"[Temperature]",
++	//cmddetail:"descr":"Sets the heat-to setpoint for heat_cool mode (°C)",
++	//cmddetail:"fn":"CMD_TargetTempLow","file":"driver/drv_tclAC.c","requires":"",
++	//cmddetail:"examples":""}
++	CMD_RegisterCommand("TargetTempLow", CMD_TargetTempLow, NULL);
++	//cmddetail:{"name":"TargetTempHigh","args":"[Temperature]",
++	//cmddetail:"descr":"Sets the cool-to setpoint for heat_cool mode (°C)",
++	//cmddetail:"fn":"CMD_TargetTempHigh","file":"driver/drv_tclAC.c","requires":"",
++	//cmddetail:"examples":""}
++	CMD_RegisterCommand("TargetTempHigh", CMD_TargetTempHigh, NULL);
+ }
+ 
+ // backlog startDriver TCL; Gen 3
+ void TCL_UART_RunEverySecond(void) {
+ 	uint8_t req_cmd[] = { 0xBB, 0x00, 0x01, 0x04, 0x02, 0x01, 0x00, 0xBD };
+ 
+-	MQTT_PublishMain_StringInt("CurrentTemperature", (int)current_temperature, 0);
+-	MQTT_PublishMain_StringInt("TargetTemperature", (int)target_temperature, 0);
+-	MQTT_PublishMain_StringString("ACMode", climateModeToStr(g_mode), 0);
+-	MQTT_PublishMain_StringString("FANMode", fanModeToStr(g_fanMode), 0);
+-	MQTT_PublishMain_StringInt("Buzzer", g_buzzer, 0);
+-	MQTT_PublishMain_StringInt("Display", g_disp, 0);
+-	MQTT_PublishMain_StringString("SwingH", getSwingHLabel(g_swingH), 0);
+-	MQTT_PublishMain_StringString("SwingV", getSwingVLabel(g_swingV), 0);
++	// Publish only on value change, or every TCL_FORCE_PUBLISH_INTERVAL seconds.
++	// Reduces MQTT load from ~10 pub/sec to near-zero in steady state,
++	// preventing watchdog resets on RTL87x0C.
++	bool force = (--tcl_publish_countdown <= 0);
++	if (force)
++		tcl_publish_countdown = TCL_FORCE_PUBLISH_INTERVAL;
++
++	int cur_temp = (int)current_temperature;
++	int cur_low = (int)g_heat_cool_low;
++	int cur_high = (int)g_heat_cool_high;
++
++	if (force || cur_temp != tcl_prev_current_temp) {
++		MQTT_PublishMain_StringInt("CurrentTemperature", cur_temp, 0);
++		tcl_prev_current_temp = cur_temp;
++	}
++	if (force || cur_low != tcl_prev_target_low) {
++		MQTT_PublishMain_StringInt("TargetTempLow", cur_low, 0);
++		tcl_prev_target_low = cur_low;
++	}
++	if (force || cur_high != tcl_prev_target_high) {
++		MQTT_PublishMain_StringInt("TargetTempHigh", cur_high, 0);
++		tcl_prev_target_high = cur_high;
++	}
++	if (force || g_mode != tcl_prev_mode) {
++		MQTT_PublishMain_StringString("ACMode", climateModeToStr(g_mode), 0);
++		tcl_prev_mode = g_mode;
++	}
++	if (force || g_fanMode != tcl_prev_fan) {
++		MQTT_PublishMain_StringString("FANMode", fanModeToStr(g_fanMode), 0);
++		tcl_prev_fan = g_fanMode;
++	}
++	if (force || g_buzzer != tcl_prev_buzzer) {
++		MQTT_PublishMain_StringInt("Buzzer", g_buzzer, 0);
++		tcl_prev_buzzer = g_buzzer;
++	}
++	if (force || g_disp != tcl_prev_disp) {
++		MQTT_PublishMain_StringInt("Display", g_disp, 0);
++		tcl_prev_disp = g_disp;
++	}
++	if (force || g_swingH != tcl_prev_swingH) {
++		MQTT_PublishMain_StringString("SwingH", getSwingHLabel(g_swingH), 0);
++		tcl_prev_swingH = g_swingH;
++	}
++	if (force || g_swingV != tcl_prev_swingV) {
++		MQTT_PublishMain_StringString("SwingV", getSwingVLabel(g_swingV), 0);
++		tcl_prev_swingV = g_swingV;
++	}
+ 
+ 	if (ready_to_send_set_cmd_flag) {
+ 		ADDLOG_WARN(LOG_FEATURE_ENERGYMETER, "Sending data");
+--- a/src/httpserver/hass.c
++++ b/src/httpserver/hass.c
+@@ -400,91 +400,76 @@
+ 	const char **swingOptions, int numSwingOptions, const char **swingHOptions, int numSwingHOptions) {
+ 	HassDeviceInfo* info = hass_init_device_info(HASS_HVAC, 0, NULL, NULL, 0, 0);
+ 
+-	// Set the name for the HVAC device
+-	cJSON_AddStringToObject(info->root, "name", "Smart Thermostat");
++	cJSON_AddStringToObject(info->root, "name", "AC");
++	cJSON_AddStringToObject(info->root, "temp_unit", "C");
+ 
+-	// Set temperature unit
+-	cJSON_AddStringToObject(info->root, "temperature_unit", "C");
++	// Current temperature
++	cJSON_AddStringToObject(info->root, "curr_temp_t", "~/CurrentTemperature/get");
+ 
+-	// Set temperature topics
+-	cJSON_AddStringToObject(info->root, "current_temperature_topic", "~/CurrentTemperature/get");
+-	sprintf(g_hassBuffer, "cmnd/%s/TargetTemperature", CFG_GetMQTTClientId());
+-	cJSON_AddStringToObject(info->root, "temperature_command_topic", g_hassBuffer);
+-	cJSON_AddStringToObject(info->root, "temperature_state_topic", "~/TargetTemperature/get");
++	// Dual-setpoint temperature topics
++	sprintf(g_hassBuffer, "cmnd/%s/TargetTempLow", CFG_GetMQTTClientId());
++	cJSON_AddStringToObject(info->root, "temp_lo_cmd_t", g_hassBuffer);
++	cJSON_AddStringToObject(info->root, "temp_lo_stat_t", "~/TargetTempLow/get");
++
++	sprintf(g_hassBuffer, "cmnd/%s/TargetTempHigh", CFG_GetMQTTClientId());
++	cJSON_AddStringToObject(info->root, "temp_hi_cmd_t", g_hassBuffer);
++	cJSON_AddStringToObject(info->root, "temp_hi_stat_t", "~/TargetTempHigh/get");
+ 
+-	// Set temperature range and step
+ 	cJSON_AddNumberToObject(info->root, "min_temp", min);
+ 	cJSON_AddNumberToObject(info->root, "max_temp", max);
+ 	cJSON_AddNumberToObject(info->root, "temp_step", step);
+ 
+-	// Set mode topics
+-	cJSON_AddStringToObject(info->root, "mode_state_topic", "~/ACMode/get");
++	// Mode topics
++	cJSON_AddStringToObject(info->root, "mode_stat_t", "~/ACMode/get");
+ 	sprintf(g_hassBuffer, "cmnd/%s/ACMode", CFG_GetMQTTClientId());
+-	cJSON_AddStringToObject(info->root, "mode_command_topic", g_hassBuffer);
++	cJSON_AddStringToObject(info->root, "mode_cmd_t", g_hassBuffer);
+ 
+-	// Add supported modes
++	// Supported modes: off, heat_cool, fan_only
+ 	cJSON* modes = cJSON_CreateArray();
+ 	cJSON_AddItemToArray(modes, cJSON_CreateString("off"));
+-	cJSON_AddItemToArray(modes, cJSON_CreateString("heat"));
+-	cJSON_AddItemToArray(modes, cJSON_CreateString("cool"));
+-	// fan does not work, it has to be fan_only
++	cJSON_AddItemToArray(modes, cJSON_CreateString("heat_cool"));
+ 	cJSON_AddItemToArray(modes, cJSON_CreateString("fan_only"));
+ 	cJSON_AddItemToObject(info->root, "modes", modes);
+ 
+ 	if (fanOptions && numFanOptions) {
+-		// Add fan mode topics
+-		cJSON_AddStringToObject(info->root, "fan_mode_state_topic", "~/FanMode/get");
+-		sprintf(g_hassBuffer, "cmnd/%s/FanMode", CFG_GetMQTTClientId());
+-		cJSON_AddStringToObject(info->root, "fan_mode_command_topic", g_hassBuffer);
++		cJSON_AddStringToObject(info->root, "fan_mode_stat_t", "~/FANMode/get");
++		sprintf(g_hassBuffer, "cmnd/%s/FANMode", CFG_GetMQTTClientId());
++		cJSON_AddStringToObject(info->root, "fan_mode_cmd_t", g_hassBuffer);
+ 
+-		// Add supported fan modes
+ 		cJSON* fan_modes = cJSON_CreateArray();
+ 		for (int i = 0; i < numFanOptions; i++) {
+-			const char *mode = fanOptions[i];
+-			cJSON_AddItemToArray(fan_modes, cJSON_CreateString(mode));
++			cJSON_AddItemToArray(fan_modes, cJSON_CreateString(fanOptions[i]));
+ 		}
+ 		cJSON_AddItemToObject(info->root, "fan_modes", fan_modes);
+ 	}
+ 	if (numSwingHOptions) {
+-		// Add Swing Horizontal
+ 		cJSON_AddStringToObject(info->root, "swing_horizontal_mode_state_topic", "~/SwingH/get");
+ 		sprintf(g_hassBuffer, "cmnd/%s/SwingH", CFG_GetMQTTClientId());
+ 		cJSON_AddStringToObject(info->root, "swing_horizontal_mode_command_topic", g_hassBuffer);
+ 
+ 		cJSON* swingH_modes = cJSON_CreateArray();
+ 		for (int i = 0; i < numSwingHOptions; i++) {
+-			const char *mode = swingHOptions[i];
+-			cJSON_AddItemToArray(swingH_modes, cJSON_CreateString(mode));
++			cJSON_AddItemToArray(swingH_modes, cJSON_CreateString(swingHOptions[i]));
+ 		}
+ 		cJSON_AddItemToObject(info->root, "swing_horizontal_modes", swingH_modes);
+ 	}
+ 	if (numSwingOptions) {
+-		// Add Swing Vertical
+-		cJSON_AddStringToObject(info->root, "swing_mode_state_topic", "~/SwingV/get");
++		cJSON_AddStringToObject(info->root, "swing_mode_stat_t", "~/SwingV/get");
+ 		sprintf(g_hassBuffer, "cmnd/%s/SwingV", CFG_GetMQTTClientId());
+-		cJSON_AddStringToObject(info->root, "swing_mode_command_topic", g_hassBuffer);
++		cJSON_AddStringToObject(info->root, "swing_mode_cmd_t", g_hassBuffer);
+ 
+ 		cJSON* swing_modes = cJSON_CreateArray();
+ 		for (int i = 0; i < numSwingOptions; i++) {
+-			const char *mode = swingOptions[i];
+-			cJSON_AddItemToArray(swing_modes, cJSON_CreateString(mode));
++			cJSON_AddItemToArray(swing_modes, cJSON_CreateString(swingOptions[i]));
+ 		}
+ 		cJSON_AddItemToObject(info->root, "swing_modes", swing_modes);
+ 
+ 	}
+-	// Set availability topic
+-	cJSON_AddStringToObject(info->root, "availability_topic", "~/status");
+-	cJSON_AddStringToObject(info->root, "payload_available", "online");
+-	cJSON_AddStringToObject(info->root, "payload_not_available", "offline");
++	// availability already set by hass_init_device_info as avty_t -> ~/connected
+ 
+ 	// Update device configuration channel for HVAC
+ 	sprintf(info->channel, "climate/%s/config", info->unique_id);
+ 
+-	// Update device info
+-	cJSON* dev = info->device;
+-	cJSON_ReplaceItemInObject(dev, "manufacturer", cJSON_CreateString("Custom"));
+-	cJSON_ReplaceItemInObject(dev, "model", cJSON_CreateString("C-Thermo"));
+-
+ 	return info;
+ }
+ HassDeviceInfo* hass_createShutter(int index) {
