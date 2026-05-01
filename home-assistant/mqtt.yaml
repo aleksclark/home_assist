@@ -1,14 +1,15 @@
 climate:
-  - &della_base
+  - name: "Livingroom AC"
+    unique_id: "livingroom_ac"
     temperature_unit: C
-    modes:
+    modes: &della_modes
       - "off"
       - "cool"
       - "heat"
       - "dry"
       - "fan_only"
       - "auto"
-    fan_modes:
+    fan_modes: &della_fan_modes
       - "1"
       - "2"
       - "3"
@@ -17,7 +18,7 @@ climate:
       - "mute"
       - "turbo"
       - "auto"
-    swing_modes:
+    swing_modes: &della_swing_modes
       - "none"
       - "move_full"
       - "move_upper"
@@ -27,14 +28,12 @@ climate:
       - "fix_mid"
       - "fix_lower"
       - "fix_bottom"
-    mode_state_template: "{{ value if value != 'fan' else 'fan_only' }}"
+    mode_state_template: &della_mode_template "{{ value if value != 'fan' else 'fan_only' }}"
     min_temp: 16
     max_temp: 30
     temp_step: 1
     payload_available: "online"
     payload_not_available: "offline"
-    name: "Livingroom AC"
-    unique_id: "livingroom_ac"
     mode_command_topic: "cmnd/minisplit_livingroom/ACMode"
     mode_state_topic: "minisplit_livingroom/ACMode/get"
     temperature_command_topic: "cmnd/minisplit_livingroom/TargetTemperature"
@@ -46,9 +45,18 @@ climate:
     swing_mode_state_topic: "minisplit_livingroom/SwingV/get"
     availability_topic: "minisplit_livingroom/connected"
 
-  - <<: *della_base
-    name: "Kitchen AC"
+  - name: "Kitchen AC"
     unique_id: "kitchen_ac"
+    temperature_unit: C
+    modes: *della_modes
+    fan_modes: *della_fan_modes
+    swing_modes: *della_swing_modes
+    mode_state_template: *della_mode_template
+    min_temp: 16
+    max_temp: 30
+    temp_step: 1
+    payload_available: "online"
+    payload_not_available: "offline"
     mode_command_topic: "cmnd/minisplit_kitchen/ACMode"
     mode_state_topic: "minisplit_kitchen/ACMode/get"
     temperature_command_topic: "cmnd/minisplit_kitchen/TargetTemperature"
@@ -59,17 +67,3 @@ climate:
     swing_mode_command_topic: "cmnd/minisplit_kitchen/SwingV"
     swing_mode_state_topic: "minisplit_kitchen/SwingV/get"
     availability_topic: "minisplit_kitchen/connected"
-
-  - <<: *della_base
-    name: "Amos Bedroom AC"
-    unique_id: "amos_bedroom_ac"
-    mode_command_topic: "cmnd/minisplit_amos/ACMode"
-    mode_state_topic: "minisplit_amos/ACMode/get"
-    temperature_command_topic: "cmnd/minisplit_amos/TargetTemperature"
-    temperature_state_topic: "minisplit_amos/TargetTemperature/get"
-    current_temperature_topic: "minisplit_amos/CurrentTemperature/get"
-    fan_mode_command_topic: "cmnd/minisplit_amos/FANMode"
-    fan_mode_state_topic: "minisplit_amos/FANMode/get"
-    swing_mode_command_topic: "cmnd/minisplit_amos/SwingV"
-    swing_mode_state_topic: "minisplit_amos/SwingV/get"
-    availability_topic: "minisplit_amos/connected"
