@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HA_HOST="aleks@192.168.0.3"
-HA_CONFIG_DIR="homeassistant_config"
+HA_HOST="aleks@192.168.0.89"
+HA_CONFIG_DIR="/mnt/moosefs/configs/homeassistant"
 LOCAL_DIR="$(cd "$(dirname "$0")" && pwd)"
 SNAPSHOT="${LOCAL_DIR}/ha-config-snapshot"
 
@@ -27,21 +27,14 @@ for f in input_helpers.yaml mqtt.yaml; do
 done
 
 echo ""
-echo "=== Uploading config to ${HA_HOST}:~/${HA_CONFIG_DIR}/ ==="
+echo "=== Uploading config to ${HA_HOST}:${HA_CONFIG_DIR}/ ==="
 
-rsync -avz --delete \
-    --exclude '.storage/' \
-    --exclude '*.log' \
-    --exclude '*.db' \
-    --exclude '*.db-shm' \
-    --exclude '*.db-wal' \
-    --exclude 'tts/' \
-    --exclude 'backups/' \
-    --exclude '__pycache__/' \
-    --exclude 'deps/' \
-    --exclude '.cloud/' \
+rsync -avz \
+    --include='*.yaml' \
+    --include='*/' \
+    --exclude='*' \
     "${SNAPSHOT}/" \
-    "${HA_HOST}:~/${HA_CONFIG_DIR}/" || {
+    "${HA_HOST}:${HA_CONFIG_DIR}/" || {
     rc=$?
     if [ $rc -eq 23 ]; then
         echo "(rsync code 23: some attrs not transferred — OK for docker ownership)"
@@ -52,19 +45,19 @@ rsync -avz --delete \
 }
 
 echo ""
-echo "=== Restarting Home Assistant via docker compose ==="
-ssh "${HA_HOST}" "cd ~/${HA_CONFIG_DIR}/.. && docker compose restart homeassistant"
+echo "=== Restarting Home Assistant via Nomad ==="
+ssh aleks@192.168.0.23 "NOMAD_ADDR=http://192.168.0.23:4646 nomad job restart -on-error=fail -task homeassistant homeassistant"
 
 echo ""
 echo "Waiting for HA to come back online..."
 for i in $(seq 1 60); do
     if ssh "${HA_HOST}" "curl -sf http://localhost:8123/api/ -H 'Authorization: Bearer \$(<~/.ha_token)'" >/dev/null 2>&1; then
-        echo "HA is up after ~${i}s"
+        echo "HA is up after ~$((i * 2))s"
         exit 0
     fi
     sleep 2
 done
 
 echo "HA did not respond within 120s — check logs with:"
-echo "  ssh ${HA_HOST} 'docker compose logs homeassistant --tail=50'"
+echo "  nomad alloc logs -job homeassistant"
 exit 1

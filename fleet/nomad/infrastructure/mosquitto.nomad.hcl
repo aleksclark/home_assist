@@ -5,7 +5,14 @@ job "mosquitto" {
   group "mosquitto" {
     count = 1
 
+    # Pin to node-2 — ESP devices have this IP hardcoded as MQTT broker
+    constraint {
+      attribute = "${node.unique.name}"
+      value     = "node-2"
+    }
+
     network {
+      mode = "host"
       port "mqtt" {
         static = 1883
       }
@@ -21,7 +28,8 @@ job "mosquitto" {
       driver = "docker"
 
       config {
-        image = "eclipse-mosquitto:2"
+        image        = "eclipse-mosquitto:2"
+        network_mode = "host"
 
         ports = ["mqtt"]
 
@@ -33,8 +41,9 @@ job "mosquitto" {
       }
 
       resources {
-        cpu    = 100
-        memory = 64
+        cpu        = 200
+        memory     = 64
+        memory_max = 256
       }
 
       service {
