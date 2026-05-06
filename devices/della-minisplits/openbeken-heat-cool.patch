@@ -1,6 +1,8 @@
+diff --git a/src/driver/drv_tclAC.c b/src/driver/drv_tclAC.c
+index 2e7c9ac..872c26e 100644
 --- a/src/driver/drv_tclAC.c
 +++ b/src/driver/drv_tclAC.c
-@@ -27,6 +27,26 @@
+@@ -27,6 +27,26 @@ int g_buzzer = 1;
  int g_disp = 1;
  int g_gen = 0;
  
@@ -17,8 +19,8 @@
 +static int tcl_prev_current_temp = -999;
 +static int tcl_prev_target_low = -999;
 +static int tcl_prev_target_high = -999;
-+static climateMode_e tcl_prev_mode = -1;
-+static fanMode_e tcl_prev_fan = -1;
++static int tcl_prev_mode = -1;
++static int tcl_prev_fan = -1;
 +static int tcl_prev_buzzer = -1;
 +static int tcl_prev_disp = -1;
 +static int tcl_prev_swingH = -1;
@@ -27,7 +29,7 @@
  typedef enum {
  	CLIMATE_MODE_OFF,
  	CLIMATE_MODE_COOL,
-@@ -36,6 +56,12 @@
+@@ -36,6 +56,12 @@ typedef enum {
  	CLIMATE_MODE_HEAT_COOL,
  	CLIMATE_MODE_AUTO,
  } climateMode_e;
@@ -40,7 +42,7 @@
  void build_set_cmd(get_cmd_resp_t * get_cmd_resp) {
  	memcpy(m_set_cmd.raw, set_cmd_base, sizeof(m_set_cmd.raw));
  
-@@ -305,43 +331,36 @@
+@@ -305,43 +331,36 @@ void OBK_SetDisplay(int display) {
  	build_set_cmd(&get_cmd_resp);
  	ready_to_send_set_cmd_flag = true;
  }
@@ -104,7 +106,7 @@
  }
  void write_array(byte *b, int s) {
  	for (int i = 0; i < s; i++) {
-@@ -355,12 +374,8 @@
+@@ -355,12 +374,8 @@ static const struct {
  	climateMode_e mode;
  } climateModeMap[] = {
  	{"off", CLIMATE_MODE_OFF},
@@ -118,7 +120,7 @@
  };
  
  climateMode_e parseClimate(const char *s) {
-@@ -486,7 +501,6 @@
+@@ -486,7 +501,6 @@ void print_hex_str(uint8_t *buffer, int len)
  }
  bool is_changed;
  float target_temperature;
@@ -126,7 +128,7 @@
  void set_target_temperature(float newTemp) {
  	if (target_temperature == newTemp)
  		return;
-@@ -494,7 +508,6 @@
+@@ -494,7 +508,6 @@ void set_target_temperature(float newTemp) {
  	target_temperature = newTemp;
  }
  fanMode_e g_fanMode;
@@ -134,7 +136,7 @@
  void set_mode(climateMode_e mode) {
  	if (g_mode == mode)
  		return;
-@@ -549,12 +562,11 @@
+@@ -549,12 +562,11 @@ void TCL_UART_TryToGetNextPacket() {
  					(int)m_get_cmd_resp.data.power, (int)m_get_cmd_resp.data.fan,
  					(int)m_get_cmd_resp.data.turbo, (int)m_get_cmd_resp.data.mute);
  
@@ -150,7 +152,7 @@
  
  				if (m_get_cmd_resp.data.turbo) set_custom_fan_mode((FAN_TURBO));
  				else if (m_get_cmd_resp.data.mute) set_custom_fan_mode((FAN_MUTE));
-@@ -600,6 +612,12 @@
+@@ -600,6 +612,12 @@ void TCL_UART_TryToGetNextPacket() {
  				ADDLOG_WARN(LOG_FEATURE_ENERGYMETER, "mode %02X", m_get_cmd_resp.data.mode);
  				set_target_temperature((float)(m_get_cmd_resp.data.temp + 16));
  				set_current_temperature(curr_temp);
@@ -163,7 +165,7 @@
  				if (is_changed)
  				{
  					//publish_state();
-@@ -610,6 +628,58 @@
+@@ -610,6 +628,58 @@ void TCL_UART_TryToGetNextPacket() {
  	}
  }
  
@@ -222,7 +224,7 @@
  static commandResult_t CMD_ACMode(const void* context, const char* cmd, const char* args, int cmdFlags) {
  	int mode;
  
-@@ -714,6 +784,24 @@
+@@ -714,6 +784,24 @@ static commandResult_t CMD_TargetTemperature(const void* context, const char* cm
  	OBK_SetTargetTemperature(target);
  	return CMD_RES_OK;
  }
@@ -247,7 +249,7 @@
  static commandResult_t CMD_SwingV(const void* context, const char* cmd, const char* args, int cmdFlags) {
  	int mode;
  
-@@ -797,20 +885,70 @@
+@@ -797,20 +885,70 @@ void TCL_Init(void) {
  	//cmddetail:"fn":"CMD_Display","file":"driver/drv_tclAC.c","requires":"",
  	//cmddetail:"examples":""}
  	CMD_RegisterCommand("Display", CMD_Display, NULL);
@@ -326,9 +328,44 @@
  
  	if (ready_to_send_set_cmd_flag) {
  		ADDLOG_WARN(LOG_FEATURE_ENERGYMETER, "Sending data");
+@@ -827,23 +965,21 @@ void TCL_UART_RunEverySecond(void) {
+ void TCL_DoDiscovery(const char *topic) {
+ 	HassDeviceInfo* dev_info = NULL;
+ 
+-
+-	dev_info = hass_createHVAC(15,30,0.5f, fanOptions, sizeof(fanOptions)/sizeof(fanOptions[0]),
+-		vertical_swing_options,sizeof(vertical_swing_options) / sizeof(vertical_swing_options[0]),
+-		horizontal_swing_options, sizeof(horizontal_swing_options) / sizeof(horizontal_swing_options[0])
+-		);
++	// Publish small toggle entities FIRST — the HVAC payload is large and on
++	// memory-constrained RTL87x0C chips the heap can be exhausted after building
++	// the climate JSON, causing subsequent allocations to fail silently.
++	dev_info = hass_createToggle("Buzzer","~/Buzzer/get","Buzzer");
+ 	MQTT_QueuePublish(topic, dev_info->channel, hass_build_discovery_json(dev_info), OBK_PUBLISH_FLAG_RETAIN);
+ 	hass_free_device_info(dev_info);
+ 
+-	//dev_info = hass_createFanWithModes("Fan Speed", "~/FANMode/get", "FANMode", fanOptions, 4);
+-	//MQTT_QueuePublish(topic, dev_info->channel, hass_build_discovery_json(dev_info), OBK_PUBLISH_FLAG_RETAIN);
+-	//hass_free_device_info(dev_info);
+-
+-	dev_info = hass_createToggle("Buzzer","~/Buzzer/get","Buzzer");
++	dev_info = hass_createToggle("Display", "~/Display/get", "Display");
+ 	MQTT_QueuePublish(topic, dev_info->channel, hass_build_discovery_json(dev_info), OBK_PUBLISH_FLAG_RETAIN);
+ 	hass_free_device_info(dev_info);
+ 
+-	dev_info = hass_createToggle("Display", "~/Display/get", "Display");
++	dev_info = hass_createHVAC(15,30,0.5f, fanOptions, sizeof(fanOptions)/sizeof(fanOptions[0]),
++		vertical_swing_options,sizeof(vertical_swing_options) / sizeof(vertical_swing_options[0]),
++		horizontal_swing_options, sizeof(horizontal_swing_options) / sizeof(horizontal_swing_options[0])
++		);
+ 	MQTT_QueuePublish(topic, dev_info->channel, hass_build_discovery_json(dev_info), OBK_PUBLISH_FLAG_RETAIN);
+ 	hass_free_device_info(dev_info);
+ 
+diff --git a/src/httpserver/hass.c b/src/httpserver/hass.c
+index aef27e9..8cfb905 100644
 --- a/src/httpserver/hass.c
 +++ b/src/httpserver/hass.c
-@@ -400,91 +400,76 @@
+@@ -400,91 +400,76 @@ HassDeviceInfo* hass_createHVAC(float min, float max, float step, const char **f
  	const char **swingOptions, int numSwingOptions, const char **swingHOptions, int numSwingHOptions) {
  	HassDeviceInfo* info = hass_init_device_info(HASS_HVAC, 0, NULL, NULL, 0, 0);
  

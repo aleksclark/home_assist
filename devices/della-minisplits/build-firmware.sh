@@ -62,10 +62,15 @@ git apply --recount --ignore-whitespace "$filterpatch"
 rm -f "$filterpatch"
 echo "    Patch applied successfully"
 
+# The SDK's bundled ARM GCC requires GLIBC 2.34+; upstream Dockerfile uses 20.04
+# which only has GLIBC 2.31. Bump to 22.04.
+sed -i 's/ubuntu:20.04/ubuntu:22.04/' docker/Dockerfile
+
 # ── 3. Build Docker image (cached after first run) ──────────────────────────
 echo "==> Building Docker image: $DOCKER_IMAGE"
 docker build \
     --platform linux/amd64 \
+    --no-cache \
     -t "$DOCKER_IMAGE" \
     --build-arg UID="$(id -u)" \
     --build-arg USERNAME="$(id -un)" \
