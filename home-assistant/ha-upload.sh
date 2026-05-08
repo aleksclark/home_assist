@@ -20,7 +20,7 @@ fi
 echo "=== Validating local config ==="
 echo "Checking configuration.yaml includes..."
 
-for f in input_helpers.yaml mqtt.yaml; do
+for f in input_helpers.yaml; do
     if ! grep -q "$f" "${SNAPSHOT}/configuration.yaml" 2>/dev/null; then
         echo "WARNING: ${f} may not be included in configuration.yaml"
     fi

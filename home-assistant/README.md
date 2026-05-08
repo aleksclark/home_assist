@@ -103,6 +103,5 @@ configurable band (default ±5°F) of the average of:
 |------|---------|
 | `README.md` | This file |
 | `zones.yaml` | House zone topology, thermal coupling, device map, schedules |
-| `mqtt.yaml` | MQTT climate entity definitions for 3 Della minisplits |
 | `automations_hvac.yaml` | Reference copy of deployed automations (YAML) |
 | `input_helpers.yaml` | Reference copy of input_boolean / input_number definitions |
