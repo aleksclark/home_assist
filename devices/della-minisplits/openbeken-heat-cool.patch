@@ -1,5 +1,5 @@
 diff --git a/src/driver/drv_tclAC.c b/src/driver/drv_tclAC.c
-index 2e7c9ac..872c26e 100644
+index 2e7c9ac..62f63a1 100644
 --- a/src/driver/drv_tclAC.c
 +++ b/src/driver/drv_tclAC.c
 @@ -27,6 +27,26 @@ int g_buzzer = 1;
@@ -42,6 +42,77 @@ index 2e7c9ac..872c26e 100644
  void build_set_cmd(get_cmd_resp_t * get_cmd_resp) {
  	memcpy(m_set_cmd.raw, set_cmd_base, sizeof(m_set_cmd.raw));
  
+@@ -140,18 +166,13 @@ static const struct {
+ 	const char *name;
+ 	fanMode_e mode;
+ } fanModeMap[] = {
+-	{"off", FAN_OFF},
+-	{"1", FAN_1},
+-	{"2", FAN_2},
+-	{"3", FAN_3},
+-	{"4", FAN_4},
+-	{"5", FAN_5},
+-	{"mute", FAN_MUTE},
+-	{"turbo", FAN_TURBO},
++	{"1", FAN_MUTE},
++	{"2", FAN_4},
++	{"3", FAN_TURBO},
+ 	{"auto", FAN_AUTOMATIC},
+ };
+-//const char *fanOptions[] = { "auto", "low", "medium", "high" };
+-const char *fanOptions[] = { "off", "1", "2", "3", "4", "5", "mute", "turbo", "auto" };
++// Discovery-visible fan modes: 1=quiet, 2=medium, 3=powerful, auto
++const char *fanOptions[] = { "1", "2", "3", "auto" };
+ 
+ fanMode_e parseFanMode(const char *s) {
+ 	for (int i = 0; i < sizeof(fanModeMap) / sizeof(fanModeMap[0]); ++i) {
+@@ -162,13 +183,25 @@ fanMode_e parseFanMode(const char *s) {
+ 	return (fanMode_e)atoi(s);
+ }
+ 
++// Map any hardware fan speed to our 3 exposed levels
+ const char *fanModeToStr(fanMode_e mode) {
+-	for (int i = 0; i < sizeof(fanModeMap) / sizeof(fanModeMap[0]); ++i) {
+-		if (fanModeMap[i].mode == mode) {
+-			return fanModeMap[i].name;
+-		}
++	switch (mode) {
++	case FAN_OFF:
++	case FAN_MUTE:
++	case FAN_1:
++		return "1";
++	case FAN_2:
++	case FAN_3:
++	case FAN_4:
++	case FAN_5:
++		return "2";
++	case FAN_TURBO:
++		return "3";
++	case FAN_AUTOMATIC:
++		return "auto";
++	default:
++		return "auto";
+ 	}
+-	return NULL;
+ }
+ typedef enum {
+ 	VS_NONE,
+@@ -195,14 +228,7 @@ typedef enum {
+ } HorizontalSwing;
+ const char* vertical_swing_options[] = {
+ 	"none",
+-	"move_full",
+-	"move_upper",
+-	"move_lower",
+-	"fix_top",
+-	"fix_upper",
+-	"fix_mid",
+-	"fix_lower",
+-	"fix_bottom"
++	"move_full"
+ };
+ 
+ const char* horizontal_swing_options[] = {
 @@ -305,43 +331,36 @@ void OBK_SetDisplay(int display) {
  	build_set_cmd(&get_cmd_resp);
  	ready_to_send_set_cmd_flag = true;
@@ -356,16 +427,23 @@ index 2e7c9ac..872c26e 100644
 -	dev_info = hass_createToggle("Display", "~/Display/get", "Display");
 +	dev_info = hass_createHVAC(15,30,0.5f, fanOptions, sizeof(fanOptions)/sizeof(fanOptions[0]),
 +		vertical_swing_options,sizeof(vertical_swing_options) / sizeof(vertical_swing_options[0]),
-+		horizontal_swing_options, sizeof(horizontal_swing_options) / sizeof(horizontal_swing_options[0])
++		NULL, 0
 +		);
  	MQTT_QueuePublish(topic, dev_info->channel, hass_build_discovery_json(dev_info), OBK_PUBLISH_FLAG_RETAIN);
  	hass_free_device_info(dev_info);
  
+@@ -876,4 +1012,4 @@ void TCL_DoDiscovery(const char *topic) {
+ 
+ }
+ 
+-#endif
++#endif
+\ No newline at end of file
 diff --git a/src/httpserver/hass.c b/src/httpserver/hass.c
-index aef27e9..8cfb905 100644
+index aef27e9..a668902 100644
 --- a/src/httpserver/hass.c
 +++ b/src/httpserver/hass.c
-@@ -400,91 +400,76 @@ HassDeviceInfo* hass_createHVAC(float min, float max, float step, const char **f
+@@ -400,91 +400,66 @@ HassDeviceInfo* hass_createHVAC(float min, float max, float step, const char **f
  	const char **swingOptions, int numSwingOptions, const char **swingHOptions, int numSwingHOptions) {
  	HassDeviceInfo* info = hass_init_device_info(HASS_HVAC, 0, NULL, NULL, 0, 0);
  
@@ -435,20 +513,20 @@ index aef27e9..8cfb905 100644
  		}
  		cJSON_AddItemToObject(info->root, "fan_modes", fan_modes);
  	}
- 	if (numSwingHOptions) {
+-	if (numSwingHOptions) {
 -		// Add Swing Horizontal
- 		cJSON_AddStringToObject(info->root, "swing_horizontal_mode_state_topic", "~/SwingH/get");
- 		sprintf(g_hassBuffer, "cmnd/%s/SwingH", CFG_GetMQTTClientId());
- 		cJSON_AddStringToObject(info->root, "swing_horizontal_mode_command_topic", g_hassBuffer);
- 
- 		cJSON* swingH_modes = cJSON_CreateArray();
- 		for (int i = 0; i < numSwingHOptions; i++) {
+-		cJSON_AddStringToObject(info->root, "swing_horizontal_mode_state_topic", "~/SwingH/get");
+-		sprintf(g_hassBuffer, "cmnd/%s/SwingH", CFG_GetMQTTClientId());
+-		cJSON_AddStringToObject(info->root, "swing_horizontal_mode_command_topic", g_hassBuffer);
+-
+-		cJSON* swingH_modes = cJSON_CreateArray();
+-		for (int i = 0; i < numSwingHOptions; i++) {
 -			const char *mode = swingHOptions[i];
 -			cJSON_AddItemToArray(swingH_modes, cJSON_CreateString(mode));
-+			cJSON_AddItemToArray(swingH_modes, cJSON_CreateString(swingHOptions[i]));
- 		}
- 		cJSON_AddItemToObject(info->root, "swing_horizontal_modes", swingH_modes);
- 	}
+-		}
+-		cJSON_AddItemToObject(info->root, "swing_horizontal_modes", swingH_modes);
+-	}
++	// Horizontal swing removed to save heap
  	if (numSwingOptions) {
 -		// Add Swing Vertical
 -		cJSON_AddStringToObject(info->root, "swing_mode_state_topic", "~/SwingV/get");
@@ -483,3 +561,10 @@ index aef27e9..8cfb905 100644
  	return info;
  }
  HassDeviceInfo* hass_createShutter(int index) {
+@@ -1236,4 +1211,4 @@ void hass_free_device_info(HassDeviceInfo* info) {
+ 	os_free(info);
+ }
+ 
+-#endif // ENABLE_HA_DISCOVERY
++#endif // ENABLE_HA_DISCOVERY
+\ No newline at end of file
