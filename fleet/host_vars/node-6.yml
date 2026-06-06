@@ -1,0 +1,62 @@
+# node-6 — Lenovo ThinkStation P510
+# Bootstrapped: 2026-06-04
+# Role: GPU compute + MooseFS storage
+# Boot: UEFI
+# CPU: Xeon E5-1620 v4 @ 3.50GHz (8 threads)
+# RAM: 32GB DDR4 ECC
+# GPU: 2x Tesla V100-SXM2-16GB (via PLX PEX 8749 carrier board)
+#      + Quadro M2000 (display)
+
+ansible_host: 192.168.0.99
+
+# Hardware specs
+machine_cpu_cores: 8
+machine_ram_gb: 32
+machine_gpu: true
+machine_gpu_count: 2
+machine_gpu_type: "tesla-v100-sxm2-16gb"
+
+# OS disk — 476GB Micron SSD, btrfs
+os_disk: /dev/sda
+
+# Data disks — 4x 5.5TB HGST HUS726060ALE, XFS, MooseFS chunkserver
+moosefs_data_disks:
+  - device: /dev/sdb
+    mount: /data/disk0
+    label: mfs-data0
+    uuid: "dbce3771-e3e4-45f1-939c-dd32ee42847c"
+  - device: /dev/sdc
+    mount: /data/disk1
+    label: mfs-data1
+    uuid: "0273ea84-32aa-4736-a0ec-06d0fef8f3ca"
+  - device: /dev/sdd
+    mount: /data/disk2
+    label: mfs-data2
+    uuid: "b16f4d07-c39a-4711-9ace-dd1e49b1e6e3"
+  - device: /dev/sde
+    mount: /data/disk3
+    label: mfs-data3
+    uuid: "f316f9ef-c07c-4492-808d-6fdc29cd2b3a"
+
+# Network — bonded dual NIC (eno1 + enp6s0) -> bond0
+network_bond: true
+network_primary_nic: eno1
+network_secondary_nic: enp6s0
+nomad_bind_interface: bond0
+
+# Nomad
+nomad_node_class: "gpu-compute-storage"
+nomad_meta:
+  storage: "true"
+  compute: "true"
+  gpu: "true"
+  gpu_count: "2"
+  gpu_type: "v100-sxm2-16gb"
+  ram_gb: "32"
+  disk_total_tb: "22"
+
+# NVIDIA driver notes:
+# - Using proprietary 580.126.18 (.run installer) on kernel 6.18-lts
+# - nvidia-open doesn't support V100 (no GSP)
+# - kernel 7.0 not supported by any proprietary driver yet
+# - GRUB set to boot linux-lts by default

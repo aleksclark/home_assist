@@ -127,6 +127,12 @@ receivers:
             - targets: ["127.0.0.1:8889"]
               labels:
                 service.name: otel-agent
+        - job_name: gpu
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["$${env:NODE_IP}:9835"]
+              labels:
+                service.name: gpu-metrics
 
   # Docker container logs via file
   filelog:
@@ -196,7 +202,7 @@ processors:
 
 exporters:
   otlp:
-    endpoint: "192.168.0.24:4317"
+    endpoint: "otel-collector.fleet.clark.team:4317"
     tls:
       insecure: true
 
