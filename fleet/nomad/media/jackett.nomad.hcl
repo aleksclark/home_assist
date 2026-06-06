@@ -1,25 +1,24 @@
-job "prowlarr" {
+job "jackett" {
   datacenters = ["home"]
   type        = "service"
 
-  group "prowlarr" {
+  group "jackett" {
     count = 1
 
     network {
       mode = "host"
-      port "http" { static = 9696 }
+      port "http" { static = 9117 }
     }
 
-    task "prowlarr" {
+    task "jackett" {
       driver = "docker"
 
       config {
-        image        = "ghcr.io/hotio/prowlarr"
+        image        = "lscr.io/linuxserver/jackett:latest"
         network_mode = "host"
 
         volumes = [
-          "/mnt/moosefs/configs/prowlarr:/config",
-          "/mnt/moosefs/media:/media",
+          "/mnt/moosefs/configs/jackett:/config",
         ]
       }
 
@@ -36,17 +35,17 @@ job "prowlarr" {
       }
 
       service {
-        name     = "prowlarr"
+        name     = "jackett"
         provider = "nomad"
         port     = "http"
 
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.prowlarr.rule=Host(`prowlarr.fleet.clark.team`)",
-          "traefik.http.routers.prowlarr.entrypoints=websecure",
-          "traefik.http.routers.prowlarr.tls=true",
-          "traefik.http.routers.prowlarr.tls.certresolver=letsencrypt",
-          "traefik.http.services.prowlarr.loadbalancer.server.port=9696",
+          "traefik.http.routers.jackett.rule=Host(`jackett.fleet.clark.team`)",
+          "traefik.http.routers.jackett.entrypoints=websecure",
+          "traefik.http.routers.jackett.tls=true",
+          "traefik.http.routers.jackett.tls.certresolver=letsencrypt",
+          "traefik.http.services.jackett.loadbalancer.server.port=9117",
         ]
 
         check {
