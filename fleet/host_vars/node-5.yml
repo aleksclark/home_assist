@@ -1,0 +1,32 @@
+# node-5 — Dell Precision Tower 5810
+# Bootstrapped: 2026-06-02 (V100 attempt), re-provisioned 2026-06-06 (GTX 960, headless compute)
+# Role: compute only (no data disks, 112GB SSD OS only)
+# Boot: UEFI
+# CPU: Xeon E5-1603 v4 (4 cores @ 2.80GHz)
+# RAM: 16GB DDR4 ECC
+# GPU: GTX 960 4GB (no driver — headless fleet node)
+
+ansible_host: 192.168.0.9
+
+# Hardware specs
+machine_cpu_cores: 4
+machine_ram_gb: 16
+machine_gpu: false
+
+# OS disk — 112GB ADATA SU655 SSD, btrfs
+os_disk: /dev/sda
+
+# No data disks — compute only
+moosefs_data_disks: []
+
+# Network — single Intel I217-LM 1G NIC
+network_bond: false
+network_primary_nic: enp0s25
+
+# Nomad
+nomad_node_class: "compute"
+nomad_bind_interface: enp0s25
+nomad_meta:
+  storage: "false"
+  compute: "true"
+  ram_gb: "16"
