@@ -5,10 +5,7 @@ job "qbittorrent" {
   group "qbittorrent" {
     count = 1
 
-    constraint {
-      attribute = "${node.unique.name}"
-      value     = "node-2"
-    }
+    
 
     network {
       port "webui" { static = 8090 }
@@ -47,7 +44,7 @@ job "qbittorrent" {
 
       resources {
         cpu    = 500
-        memory = 512
+        memory = 3072
       }
 
       service {
