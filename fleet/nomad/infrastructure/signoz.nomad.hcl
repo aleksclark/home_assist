@@ -5,16 +5,16 @@ job "signoz" {
   group "signoz" {
     count = 1
 
-    # Pin to node-2 — has 16GB RAM, best fit for ClickHouse + ZK
+    # Pin to node-4 — SQLite needs local disk (MooseFS doesn't support fcntl locking)
     constraint {
       attribute = "${node.unique.name}"
-      value     = "node-2"
+      value     = "node-4"
     }
 
     update {
       min_healthy_time  = "30s"
-      healthy_deadline  = "15m"
-      progress_deadline = "20m"
+      healthy_deadline  = "30m"
+      progress_deadline = "35m"
     }
 
     network {
@@ -67,10 +67,10 @@ job "signoz" {
         ZOO_ENABLE_ADMIN_SERVER             = "no"
       }
 
-      # ZK is Java — needs at least 512MB
+      # ZK is Java — needs headroom above 512MB to avoid OOM
       resources {
         cpu    = 200
-        memory = 512
+        memory = 1024
       }
     }
 
@@ -182,7 +182,7 @@ job "signoz" {
 
       resources {
         cpu    = 2000
-        memory = 3072
+        memory = 16384
       }
     }
 
@@ -256,7 +256,7 @@ job "signoz" {
         image        = "signoz/signoz:v0.120.0"
         network_mode = "host"
         volumes = [
-          "/mnt/moosefs/configs/signoz/sqlite:/var/lib/signoz",
+          "/data/signoz:/var/lib/signoz",
         ]
       }
 
