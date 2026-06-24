@@ -50,7 +50,7 @@ job "coredns" {
         data        = <<-EOF
           $ORIGIN fleet.clark.team.
           @   3600 IN SOA  ns.fleet.clark.team. admin.fleet.clark.team. (
-                           2025042301 ; serial
+                           2025050801 ; serial
                            3600       ; refresh
                            600        ; retry
                            86400      ; expire
@@ -62,13 +62,40 @@ job "coredns" {
           node-1   IN A  192.168.0.23
           node-2   IN A  192.168.0.24
           node-3   IN A  192.168.0.89
+          node-4   IN A  192.168.0.41
+          node-6   IN A  192.168.0.99
+
+          ; Service records — pinned to hosting node
+          signoz           IN A  192.168.0.41
+          otel-collector   IN A  192.168.0.41
+          clickhouse       IN A  192.168.0.41
+          moosefs-master   IN A  192.168.0.89
+          homeassistant    IN A  192.168.0.89
+          omada            IN A  192.168.0.89
+          mosquitto        IN A  192.168.0.24
+          jellyfin         IN A  192.168.0.24
+          readarr          IN A  192.168.0.24
+          photoprism       IN A  192.168.0.89
+          syncthing        IN A  192.168.0.41
+          radarr           IN A  192.168.0.41
+          prowlarr         IN A  192.168.0.41
+
+          ; Client machines
+          amos-pc  IN A  192.168.0.26
 
           ; Nameserver self-reference
           ns       IN A  192.168.0.23
           ns       IN A  192.168.0.24
           ns       IN A  192.168.0.89
+          ns       IN A  192.168.0.41
+          ns       IN A  192.168.0.99
 
-          ; Wildcard — any *.fleet.local → all Traefik nodes (round-robin)
+          ; Nomad UI (pinned to server node)
+          nomad    IN A  192.168.0.89
+
+          ; Wildcard — any *.fleet.clark.team → all Traefik nodes (round-robin)
+          ; Services like audiobookshelf, books, sonarr, etc. resolve here
+          ; and Traefik routes by Host header to the correct backend.
           *        IN A  192.168.0.23
           *        IN A  192.168.0.24
           *        IN A  192.168.0.89

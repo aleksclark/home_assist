@@ -5,26 +5,25 @@ job "cloudflared" {
   group "cloudflared" {
     count = 1
 
-    volume "cloudflared-config" {
-      type      = "host"
-      source    = "moosefs-configs"
-      read_only = false
+    network {
+      mode = "host"
     }
 
     task "cloudflared" {
       driver = "docker"
 
       config {
-        image = "cloudflare/cloudflared:latest"
+        image        = "cloudflare/cloudflared:latest"
+        network_mode = "host"
 
         args = [
-          "tunnel", "--no-autoupdate", "run",
-          "--token", "${TUNNEL_TOKEN}",
+          "tunnel", "--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "run",
         ]
-      }
 
-      env {
-        TUNNEL_TOKEN = "eyJhIjoiMWFjN2Q1MzA1ZTEwMjcxOTViNDViZDFhZjdlM2IwMjAiLCJ0IjoiODRkOTY1ODUtNWJlNi00ZjBkLTk3ZWItYzZkYTI2YjY0NDk0IiwicyI6IlpqZGtPRGd4TVRFdE56ZGtZeTAwTkdGaExUbGlaV0l0WlRSbU5UQXlNR0kyTW1SaCJ9"
+        volumes = [
+          "/mnt/moosefs/configs/cloudflared/config.yml:/etc/cloudflared/config.yml:ro",
+          "/mnt/moosefs/configs/cloudflared/84d96585-5be6-4f0d-97eb-c6da26b64494.json:/etc/cloudflared/84d96585-5be6-4f0d-97eb-c6da26b64494.json:ro",
+        ]
       }
 
       resources {
