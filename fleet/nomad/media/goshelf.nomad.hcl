@@ -6,60 +6,80 @@ job "goshelf" {
     count = 1
 
     constraint {
-      attribute = "${node.unique.name}"
-      value     = "node-2"
+      attribute = "${node.unique.id}"
+      value     = "04f5c0c2-f9e5-8bd1-cdf5-6c600c73dbf3"
     }
 
     network {
       port "http" {
         static = 8580
-        to     = 8080
+      }
+    }
+
+    volume "moosefs-media" {
+      type      = "host"
+      source    = "moosefs-media"
+      read_only = true
+    }
+
+    volume "moosefs-configs" {
+      type      = "host"
+      source    = "moosefs-configs"
+      read_only = false
+    }
+
+    service {
+      name     = "goshelf"
+      port     = "http"
+      provider = "nomad"
+
+      tags = [
+        "traefik.enable=true",
+        "traefik.http.routers.goshelf.rule=Host(`books.fleet.clark.team`) || Host(`books.clark.team`)",
+        "traefik.http.routers.goshelf.entrypoints=websecure",
+        "traefik.http.routers.goshelf.tls.certresolver=letsencrypt",
+      ]
+
+      check {
+        type     = "http"
+        path     = "/login"
+        interval = "30s"
+        timeout  = "5s"
       }
     }
 
     task "goshelf" {
       driver = "docker"
 
+      # Local-only image on node-2. Tag with version to avoid pull attempts.
       config {
-        image      = "goshelf@sha256:0a90da9f4ddbf3d727e13995de7ce1965070fef535de74d60167109c54eb1af2"
+        image = "goshelf:v1.1"
         ports = ["http"]
+      }
 
-        volumes = [
-          "/mnt/moosefs/media/audiobooks:/audiobooks:ro",
-          "/mnt/moosefs/configs/goshelf:/data",
-        ]
+      volume_mount {
+        volume      = "moosefs-media"
+        destination = "/audiobooks"
+        read_only   = true
+      }
+
+      volume_mount {
+        volume      = "moosefs-configs"
+        destination = "/configs"
+        read_only   = false
       }
 
       env {
+        LISTEN_ADDR     = ":${NOMAD_PORT_http}"
         READARR_URL     = "http://192.168.0.24:8787"
         READARR_API_KEY = "124c86cb3f13445c8f20e951919fb896"
-        MEDIA_PATH      = "/audiobooks"
-        LISTEN_ADDR     = ":8080"
-        DB_PATH         = "/data/goshelf.db"
+        MEDIA_PATH      = "/audiobooks/audiobooks"
+        DB_PATH         = "/configs/goshelf/goshelf.db"
       }
 
       resources {
         cpu    = 200
         memory = 128
-      }
-
-      restart {
-        attempts = 3
-        interval = "5m"
-        delay    = "10s"
-        mode     = "delay"
-      }
-
-      service {
-        name     = "goshelf"
-        provider = "nomad"
-        port     = "http"
-        tags     = [
-          "traefik.enable=true",
-          "traefik.http.routers.goshelf.rule=Host(`goshelf.fleet.clark.team`) || Host(`books.fleet.clark.team`) || Host(`books.clark.team`)",
-          "traefik.http.routers.goshelf.entrypoints=websecure",
-          "traefik.http.routers.goshelf.tls=true",
-        ]
       }
     }
   }
