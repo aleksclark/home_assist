@@ -5,10 +5,7 @@ job "lidarr" {
   group "lidarr" {
     count = 1
 
-    constraint {
-      attribute = "${node.unique.name}"
-      value     = "node-2"
-    }
+    
 
     network {
       mode = "host"

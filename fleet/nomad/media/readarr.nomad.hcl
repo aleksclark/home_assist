@@ -5,10 +5,7 @@ job "readarr" {
   group "readarr" {
     count = 1
 
-    constraint {
-      attribute = "${node.unique.name}"
-      value     = "node-2"
-    }
+    
 
     network {
       mode = "host"
@@ -19,7 +16,7 @@ job "readarr" {
       driver = "docker"
 
       config {
-        image        = "ghcr.io/hotio/readarr@sha256:71c8394ed337e75df687f7babc40c7feb4654b90fedc91be76f15674a2529d8e"
+        image        = "linuxserver/readarr@sha256:2f06a46938d1ca59b9efb8f6f1a5f53fcc6b413cfe33ad49ffa53527e11e573d"
         network_mode = "host"
 
         volumes = [
@@ -33,7 +30,6 @@ job "readarr" {
         PGID  = "1000"
         UMASK = "002"
         TZ    = "America/Chicago"
-        WEBUI_PORTS = "8788/tcp,8788/udp"
       }
 
       resources {

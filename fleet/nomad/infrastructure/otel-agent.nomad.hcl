@@ -133,6 +133,12 @@ receivers:
             - targets: ["$${env:NODE_IP}:9835"]
               labels:
                 service.name: gpu-metrics
+        - job_name: temp-exporter
+          scrape_interval: 30s
+          static_configs:
+            - targets: ["$${env:NODE_IP}:9101"]
+              labels:
+                service.name: temp-exporter
 
   # Docker container logs via file
   filelog:

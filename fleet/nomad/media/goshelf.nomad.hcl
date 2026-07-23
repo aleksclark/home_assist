@@ -5,11 +5,6 @@ job "goshelf" {
   group "goshelf" {
     count = 1
 
-    constraint {
-      attribute = "${node.unique.id}"
-      value     = "04f5c0c2-f9e5-8bd1-cdf5-6c600c73dbf3"
-    }
-
     network {
       port "http" {
         static = 8580
@@ -51,9 +46,8 @@ job "goshelf" {
     task "goshelf" {
       driver = "docker"
 
-      # Local-only image on node-2. Tag with version to avoid pull attempts.
       config {
-        image = "goshelf:v1.1"
+        image = "ghcr.io/aleksclark/goshelf:v2026.7.1"
         ports = ["http"]
       }
 

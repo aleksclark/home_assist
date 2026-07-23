@@ -8,7 +8,7 @@ job "moosefs-poller" {
     # Pin to master node where mfscli is installed
     constraint {
       attribute = "${node.unique.name}"
-      value     = "node-1"
+      value     = "node-3"
     }
 
     network {
@@ -32,9 +32,9 @@ job "moosefs-poller" {
       }
 
       env {
-        MOOSEFS_MASTER_HOST    = "192.168.0.89"
+        MOOSEFS_MASTER_HOST    = "moosefs-master.fleet.clark.team"
         MOOSEFS_POLL_INTERVAL  = "60"
-        OTEL_EXPORTER_OTLP_ENDPOINT = "http://192.168.0.24:4318"
+        OTEL_EXPORTER_OTLP_ENDPOINT = "http://otel-collector.fleet.clark.team:4318"
       }
 
       template {
@@ -54,7 +54,7 @@ import logging
 import urllib.request
 from dataclasses import dataclass, field
 
-OTEL_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://192.168.0.24:4318")
+OTEL_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector.fleet.clark.team:4318")
 MFSCLI_HOST = os.environ.get("MOOSEFS_MASTER_HOST", "mfsmaster")
 POLL_INTERVAL = int(os.environ.get("MOOSEFS_POLL_INTERVAL", "60"))
 SERVICE_NAME = "moosefs"

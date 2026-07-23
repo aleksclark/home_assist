@@ -1,0 +1,31 @@
+# node-4 — Xyratex Storage Server
+# Bootstrapped: 2026-05-05
+# Role: MooseFS chunkserver (no data disks yet), compute
+# Boot: BIOS
+# CPU: 2x Xeon E5620 (16 threads total)
+# RAM: 64GB DDR3 ECC
+
+ansible_host: 192.168.0.41
+
+# Hardware specs
+machine_cpu_cores: 16
+machine_ram_gb: 64
+machine_gpu: false
+
+# OS disk — btrfs root (120GB Intel SSD)
+os_disk: /dev/sda
+
+# Data disks — none yet (Xyratex chassis has empty bays, needs SAS HBA or SATA drives)
+moosefs_data_disks: []
+
+# Network — bonded dual Intel 82574L 1G
+network_bond: true
+network_primary_nic: enp3s0
+network_secondary_nic: enp2s0
+
+# Nomad
+nomad_node_class: "compute"
+nomad_meta:
+  storage: "false"
+  compute: "true"
+  ram_gb: "64"

@@ -45,8 +45,8 @@ job "homeassistant" {
 
       resources {
         cpu        = 500
-        memory     = 512
-        memory_max = 1024
+        memory     = 1024
+        memory_max = 2048
       }
 
       restart {

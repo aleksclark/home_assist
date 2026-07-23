@@ -5,9 +5,10 @@ job "photoprism" {
   group "photoprism" {
     count = 1
 
-    constraint {
-      attribute = "${node.unique.name}"
-      value     = "node-2"
+    update {
+      healthy_deadline  = "15m"
+      progress_deadline = "20m"
+      min_healthy_time  = "30s"
     }
 
     network {
@@ -30,7 +31,7 @@ job "photoprism" {
         network_mode = "host"
 
         args = [
-          "--innodb-buffer-pool-size=256M",
+          "--innodb-buffer-pool-size=512M",
           "--transaction-isolation=READ-COMMITTED",
           "--character-set-server=utf8mb4",
           "--collation-server=utf8mb4_unicode_ci",
@@ -54,8 +55,8 @@ job "photoprism" {
       }
 
       resources {
-        cpu    = 500
-        memory = 512
+        cpu    = 5000
+        memory = 5120
       }
     }
 
@@ -119,8 +120,8 @@ job "photoprism" {
       }
 
       resources {
-        cpu    = 2000
-        memory = 2048
+        cpu    = 10000
+        memory = 8192
       }
 
       service {

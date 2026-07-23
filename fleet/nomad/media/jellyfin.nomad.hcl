@@ -5,10 +5,7 @@ job "jellyfin" {
   group "jellyfin" {
     count = 1
 
-    constraint {
-      attribute = "${node.unique.name}"
-      value     = "node-2"
-    }
+    # No node constraint - config lives on moosefs, runs anywhere
 
     network {
       mode = "host"
@@ -29,8 +26,8 @@ job "jellyfin" {
         network_mode = "host"
 
         volumes = [
-          "/home/aleks/jellyfin_config:/config",
-          "/home/aleks/jellyfin_config/cache:/cache",
+          "/mnt/moosefs/configs/jellyfin:/config",
+          "/mnt/moosefs/configs/jellyfin/cache:/cache",
           "/mnt/moosefs/media:/media",
           "/mnt/moosefs/family/photos:/photos",
         ]

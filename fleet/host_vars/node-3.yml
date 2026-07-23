@@ -7,28 +7,28 @@ ansible_host: 192.168.0.89
 
 # Hardware specs
 machine_cpu_cores: 4
-machine_ram_gb: 8
+machine_ram_gb: 32
 machine_gpu: false
 
-# OS disk — btrfs root (320GB WD HDD)
+# OS disk — btrfs root (300GB WD HDD)
 os_disk: /dev/sdc
 
 # Data disks — MooseFS chunkserver (XFS)
 moosefs_data_disks:
   - mount: /data/disk0
-    uuid: ""  # WD 3.6TB — sda
+    uuid: "d0c6ed3c-6030-4ff8-8be1-70786871e358"
     size_tb: 3.6
   - mount: /data/disk1
-    uuid: ""  # IBM 1.8TB — sdb
+    uuid: "fe3f9124-f240-40c7-8806-746283d7beb1"
     size_tb: 1.8
   - mount: /data/disk2
-    uuid: ""  # IBM 1.8TB — sdd
+    device: /dev/sdd2
     size_tb: 1.8
 
 # Network
 network_bond: true
-network_primary_nic: eno1       # Intel 1G (cable removed)
-network_secondary_nic: enp4s0   # Realtek 2.5G
+network_primary_nic: enp4s0     # Realtek 2.5G (active)
+network_secondary_nic: eno1     # Intel 1G (cable removed)
 
 # Nomad
 nomad_node_class: "storage-compute"
