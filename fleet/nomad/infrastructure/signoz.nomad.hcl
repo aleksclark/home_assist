@@ -255,15 +255,13 @@ job "signoz" {
       config {
         image        = "signoz/signoz:v0.120.0"
         network_mode = "host"
-        volumes = [
-          "/data/signoz:/var/lib/signoz",
-        ]
       }
 
       env {
         SIGNOZ_ALERTMANAGER_PROVIDER                   = "signoz"
         SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN           = "tcp://127.0.0.1:9000"
-        SIGNOZ_SQLSTORE_SQLITE_PATH                    = "/var/lib/signoz/signoz.db"
+        SIGNOZ_SQLSTORE_PROVIDER                       = "postgres"
+        SIGNOZ_SQLSTORE_POSTGRES_DSN                   = "postgres://signoz:signoz-fleet-2026@192.168.0.24:5432/signoz?sslmode=disable"
         SIGNOZ_TOKENIZER_JWT_SECRET="fleet-...e-me"
         SIGNOZ_USER_ROOT_ENABLED                       = "true"
         SIGNOZ_USER_ROOT_EMAIL                         = "aleks@clark.team"
