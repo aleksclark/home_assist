@@ -273,7 +273,7 @@ job "signoz" {
 
       resources {
         cpu    = 500
-        memory = 512
+        memory = 1024
       }
 
       service {
@@ -473,7 +473,7 @@ server_endpoint: ws://127.0.0.1:4320/v1/opamp
 
       resources {
         cpu    = 500
-        memory = 512
+        memory = 1536
       }
 
       service {
