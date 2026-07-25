@@ -47,7 +47,7 @@ job "goshelf" {
       driver = "docker"
 
       config {
-        image = "ghcr.io/aleksclark/goshelf:v2026.7.1"
+        image = "ghcr.io/aleksclark/goshelf:v2026.7.15"
         ports = ["http"]
       }
 
