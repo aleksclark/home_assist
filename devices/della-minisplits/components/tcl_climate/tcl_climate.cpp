@@ -537,6 +537,8 @@ void TCLClimate::apply_heat_cool_logic_() {
     return;
 
   auto &resp = this->last_resp_.data;
+  float midpoint = (this->heat_cool_low_ + this->heat_cool_high_) / 2.0f;
+
   // Determine desired hardware mode
   uint8_t want_mode;
   float want_temp;
@@ -547,36 +549,20 @@ void TCLClimate::apply_heat_cool_logic_() {
     want_mode = 0x01;  // cool
     want_temp = this->heat_cool_high_;
   } else {
-    // In the deadband — temp is between low and high setpoints.
-    // If currently cooling and haven't reached high setpoint yet, or
-    // currently heating and haven't reached low setpoint yet, keep going.
-    // Otherwise go idle (fan only).
-    if (resp.power && resp.mode == 0x01 && this->heat_cool_active_submode_ == 0x01) {
-      // Was cooling — only continue if temp is still above the high target
-      // (shouldn't happen since we're in deadband, meaning temp <= high)
-      // We're satisfied — go idle
-    } else if (resp.power && resp.mode == 0x04 && this->heat_cool_active_submode_ == 0x04) {
-      // Was heating — only continue if temp is still below the low target
-      // (shouldn't happen since we're in deadband, meaning temp >= low)
-      // We're satisfied — go idle
+    // In the deadband — keep current direction, or pick based on midpoint
+    if (resp.power && (resp.mode == 0x01 || resp.mode == 0x04)) {
+      // Already running heat or cool — let it ride
+      this->heat_cool_active_submode_ = resp.mode;
+      return;
     }
-
-    // Temp is in the deadband — unit should idle (fan mode, compressor off)
-    ESP_LOGD(TAG, "heat_cool: temp=%.1f in deadband [%.0f, %.0f] -> idle (fan)",
-             temp, this->heat_cool_low_, this->heat_cool_high_);
-
-    // Switch to fan-only to stop compressor but keep air moving
-    this->heat_cool_active_submode_ = 0;  // idle
-
-    GetResponse working{};
-    memcpy(working.raw, this->last_resp_.raw, GET_RESP_LEN);
-    working.data.power = 1;
-    working.data.mode = 0x02;  // fan_only
-    working.data.temp = resp.temp;  // keep existing temp setting
-
-    this->build_set_cmd_(&working);
-    this->pending_send_ = true;
-    return;
+    // Not running or in a different mode — pick based on side of midpoint
+    if (temp <= midpoint) {
+      want_mode = 0x04;  // heat
+      want_temp = this->heat_cool_low_;
+    } else {
+      want_mode = 0x01;  // cool
+      want_temp = this->heat_cool_high_;
+    }
   }
 
   // Track what we're commanding for action reporting
@@ -615,7 +601,7 @@ climate::ClimateAction TCLClimate::compute_action_() {
     switch (this->heat_cool_active_submode_) {
       case 0x01: return climate::CLIMATE_ACTION_COOLING;
       case 0x04: return climate::CLIMATE_ACTION_HEATING;
-      default: return climate::CLIMATE_ACTION_IDLE;  // deadband — compressor off
+      default: return climate::CLIMATE_ACTION_IDLE;
     }
   }
 
