@@ -5,10 +5,10 @@ job "signoz" {
   group "signoz" {
     count = 1
 
-    # Pin to node-4 — SQLite needs local disk (MooseFS doesn't support fcntl locking)
+    # Run on node-3 (has RAM headroom, close to CH cluster)
     constraint {
       attribute = "${node.unique.name}"
-      value     = "node-4"
+      value     = "node-3"
     }
 
     update {
@@ -27,162 +27,6 @@ job "signoz" {
       }
       port "otel-http" {
         static = 4318
-      }
-    }
-
-    volume "moosefs-configs" {
-      type      = "host"
-      source    = "moosefs-configs"
-      read_only = false
-    }
-
-    # ─── Zookeeper ───
-
-    task "zookeeper" {
-      driver = "docker"
-      lifecycle {
-        hook    = "prestart"
-        sidecar = true
-      }
-
-      config {
-        image        = "signoz/zookeeper:3.7.1"
-        network_mode = "host"
-
-        # Bitnami ZK image needs root for volume setup
-        privileged = true
-
-        volumes = [
-          "/mnt/moosefs/configs/signoz/zookeeper:/bitnami/zookeeper",
-        ]
-      }
-
-      env {
-        ZOO_SERVER_ID                       = "1"
-        ALLOW_ANONYMOUS_LOGIN               = "yes"
-        ZOO_AUTOPURGE_INTERVAL              = "1"
-        ZOO_ENABLE_PROMETHEUS_METRICS       = "yes"
-        ZOO_PROMETHEUS_METRICS_PORT_NUMBER  = "9141"
-        # Disable AdminServer to avoid port 8080 conflict with SigNoz UI
-        ZOO_ENABLE_ADMIN_SERVER             = "no"
-      }
-
-      # ZK is Java — needs headroom above 512MB to avoid OOM
-      resources {
-        cpu    = 200
-        memory = 1024
-      }
-    }
-
-    # ─── Init ClickHouse (histogram UDF binary) ───
-
-    task "init-clickhouse" {
-      driver = "docker"
-      lifecycle {
-        hook = "prestart"
-      }
-
-      config {
-        image   = "clickhouse/clickhouse-server:25.5.6"
-        command = "/bin/bash"
-        args    = ["/local/init.sh"]
-
-        volumes = [
-          "/mnt/moosefs/configs/signoz/clickhouse/user_scripts:/user_scripts",
-        ]
-      }
-
-      template {
-        destination     = "local/init.sh"
-        perms           = "755"
-        left_delimiter  = "{{{"
-        right_delimiter = "}}}"
-        data            = <<-EOF
-          #!/bin/bash
-          set -e
-          if [ -f /user_scripts/histogramQuantile ]; then
-            echo "histogramQuantile already exists, skipping download"
-            exit 0
-          fi
-          version="v0.0.1"
-          node_os=$(uname -s | tr '[:upper:]' '[:lower:]')
-          node_arch=$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
-          echo "Fetching histogram-binary for ${node_os}/${node_arch}"
-          cd /tmp
-          wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F${version}/histogram-quantile_${node_os}_${node_arch}.tar.gz"
-          tar -xvzf histogram-quantile.tar.gz
-          cp histogram-quantile /user_scripts/histogramQuantile
-          echo "Done"
-        EOF
-      }
-
-      resources {
-        cpu    = 200
-        memory = 256
-      }
-    }
-
-    # ─── Cleanup stale ClickHouse lock file ───
-    # ClickHouse writes a status/lock file that persists on MooseFS after
-    # unclean shutdown (crash, node reboot, FUSE blip). Without this cleanup,
-    # ClickHouse crash-loops with exit code 76.
-    task "cleanup-ch-lock" {
-      driver = "docker"
-      lifecycle {
-        hook = "prestart"
-      }
-
-      config {
-        image   = "busybox:latest"
-        command = "rm"
-        args    = ["-f", "/data/status"]
-        volumes = [
-          "/mnt/moosefs/configs/signoz/clickhouse-data:/data",
-        ]
-      }
-
-      resources {
-        cpu    = 50
-        memory = 32
-      }
-    }
-
-    # ─── ClickHouse ───
-
-    task "clickhouse" {
-      driver = "docker"
-      lifecycle {
-        hook    = "prestart"
-        sidecar = true
-      }
-
-      config {
-        image        = "clickhouse/clickhouse-server:25.5.6"
-        network_mode = "host"
-
-        volumes = [
-          "/mnt/moosefs/configs/signoz/clickhouse/config.xml:/etc/clickhouse-server/config.xml:ro",
-          "/mnt/moosefs/configs/signoz/clickhouse/users.xml:/etc/clickhouse-server/users.xml:ro",
-          "/mnt/moosefs/configs/signoz/clickhouse/custom-function.xml:/etc/clickhouse-server/custom-function.xml:ro",
-          "/mnt/moosefs/configs/signoz/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro",
-          "/mnt/moosefs/configs/signoz/clickhouse/performance.xml:/etc/clickhouse-server/config.d/performance.xml:ro",
-          "/mnt/moosefs/configs/signoz/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts",
-          "/mnt/moosefs/configs/signoz/clickhouse-data:/var/lib/clickhouse",
-        ]
-
-        ulimit {
-          nproc  = "65535"
-          nofile = "262144:262144"
-        }
-      }
-
-      env {
-        CLICKHOUSE_SKIP_USER_SETUP = "1"
-      }
-
-      resources {
-        cpu    = 2000
-        memory = 16384
       }
     }
 
@@ -208,18 +52,6 @@ job "signoz" {
         right_delimiter = "}}}"
         data            = <<-EOF
           #!/bin/sh
-          echo "Waiting for ClickHouse on port 9000..."
-          i=0
-          while [ $i -lt 90 ]; do
-            if echo "SELECT 1" | /signoz-otel-collector migrate bootstrap 2>&1 | grep -q "already exists\|Creating databases"; then
-              break
-            fi
-            # Simple TCP check - try connecting to CH native port
-            (echo > /dev/tcp/127.0.0.1/9000) 2>/dev/null && break
-            i=$((i + 1))
-            sleep 2
-          done
-          sleep 5
           echo "Running migrations..."
           /signoz-otel-collector migrate bootstrap &&
           /signoz-otel-collector migrate sync up &&
@@ -228,7 +60,7 @@ job "signoz" {
       }
 
       env {
-        SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN         = "tcp://127.0.0.1:9000"
+        SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN         = "tcp://192.168.0.24:9000"
         SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER      = "cluster"
         SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION   = "true"
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT                  = "10m"
@@ -259,13 +91,13 @@ job "signoz" {
 
       env {
         SIGNOZ_ALERTMANAGER_PROVIDER                   = "signoz"
-        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN           = "tcp://127.0.0.1:9000"
+        SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN           = "tcp://192.168.0.24:9000"
         SIGNOZ_SQLSTORE_PROVIDER                       = "postgres"
-        SIGNOZ_SQLSTORE_POSTGRES_DSN                   = "postgres://signoz:signoz-fleet-2026@192.168.0.24:5432/signoz?sslmode=disable"
-        SIGNOZ_TOKENIZER_JWT_SECRET="fleet-...e-me"
+        SIGNOZ_SQLSTORE_POSTGRES_DSN                   = "postgres://signoz:signoz_pass_2026@192.168.0.24:5432/signoz?sslmode=disable"
+        SIGNOZ_TOKENIZER_JWT_SECRET                    = "clark-fleet-signoz-jwt-secret-2026"
         SIGNOZ_USER_ROOT_ENABLED                       = "true"
         SIGNOZ_USER_ROOT_EMAIL                         = "aleks@clark.team"
-        SIGNOZ_USER_ROOT_PASSWORD                      = "Fleet2026!Monitor"
+        SIGNOZ_USER_ROOT_PASSWORD                      = "FleetAdmin2026!"
         SIGNOZ_USER_ROOT_ORG_NAME                      = "Clark Fleet"
       }
 
@@ -336,7 +168,7 @@ job "signoz" {
       env {
         OTEL_RESOURCE_ATTRIBUTES                       = "host.name=signoz-host,os.type=linux"
         LOW_CARDINAL_EXCEPTION_GROUPING                = "false"
-        SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN           = "tcp://127.0.0.1:9000"
+        SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN           = "tcp://192.168.0.24:9000"
         SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER       = "cluster"
         SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION   = "true"
         SIGNOZ_OTEL_COLLECTOR_TIMEOUT                  = "10m"
@@ -411,24 +243,24 @@ extensions:
     endpoint: 0.0.0.0:1777
 exporters:
   clickhousetraces:
-    datasource: tcp://127.0.0.1:9000/signoz_traces
+    datasource: tcp://192.168.0.24:9000/signoz_traces
     low_cardinal_exception_grouping: false
     use_new_schema: true
   signozclickhousemetrics:
-    dsn: tcp://127.0.0.1:9000/signoz_metrics
+    dsn: tcp://192.168.0.24:9000/signoz_metrics
   clickhouselogsexporter:
-    dsn: tcp://127.0.0.1:9000/signoz_logs
+    dsn: tcp://192.168.0.24:9000/signoz_logs
     timeout: 10s
     use_new_schema: true
   signozclickhousemeter:
-    dsn: tcp://127.0.0.1:9000/signoz_meter
+    dsn: tcp://192.168.0.24:9000/signoz_meter
     timeout: 45s
     sending_queue:
       enabled: false
   metadataexporter:
     cache:
       provider: in_memory
-    dsn: tcp://127.0.0.1:9000/signoz_metadata
+    dsn: tcp://192.168.0.24:9000/signoz_metadata
     enabled: true
     timeout: 45s
 service:

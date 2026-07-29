@@ -245,6 +245,13 @@ void TCLClimate::parse_response_(uint8_t *buf, int len) {
     this->apply_heat_cool_logic_();
   }
 
+  // --- HVAC action (what it's actually doing) ---
+  auto new_action = this->compute_action_();
+  if (this->action != new_action) {
+    this->action = new_action;
+    changed = true;
+  }
+
   // --- Vertical swing position ---
   VerticalSwing new_vs = VS_NONE;
   if (d.vswing_mv == 0x01) new_vs = VS_MOVE_FULL;
@@ -365,6 +372,7 @@ climate::ClimateTraits TCLClimate::traits() {
   auto traits = climate::ClimateTraits();
   traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE);
   traits.add_feature_flags(climate::CLIMATE_SUPPORTS_TWO_POINT_TARGET_TEMPERATURE);
+  traits.add_feature_flags(climate::CLIMATE_SUPPORTS_ACTION);
   traits.set_supported_modes({
       climate::CLIMATE_MODE_OFF,
       climate::CLIMATE_MODE_COOL,
@@ -544,6 +552,7 @@ void TCLClimate::apply_heat_cool_logic_() {
     // In the deadband — keep current direction, or pick based on midpoint
     if (resp.power && (resp.mode == 0x01 || resp.mode == 0x04)) {
       // Already running heat or cool — let it ride
+      this->heat_cool_active_submode_ = resp.mode;
       return;
     }
     // Not running or in a different mode — pick based on side of midpoint
@@ -555,6 +564,9 @@ void TCLClimate::apply_heat_cool_logic_() {
       want_temp = this->heat_cool_high_;
     }
   }
+
+  // Track what we're commanding for action reporting
+  this->heat_cool_active_submode_ = want_mode;
 
   // Check if hardware already matches
   uint8_t want_temp_raw = (uint8_t) want_temp - 16;
@@ -573,6 +585,45 @@ void TCLClimate::apply_heat_cool_logic_() {
 
   this->build_set_cmd_(&working);
   this->pending_send_ = true;
+}
+
+// --- Compute current HVAC action for HA display ---
+
+climate::ClimateAction TCLClimate::compute_action_() {
+  auto &d = this->last_resp_.data;
+
+  if (d.power == 0) {
+    return climate::CLIMATE_ACTION_OFF;
+  }
+
+  if (this->heat_cool_mode_) {
+    // In virtual heat_cool mode, report based on what sub-mode we're commanding
+    switch (this->heat_cool_active_submode_) {
+      case 0x01: return climate::CLIMATE_ACTION_COOLING;
+      case 0x04: return climate::CLIMATE_ACTION_HEATING;
+      default: return climate::CLIMATE_ACTION_IDLE;
+    }
+  }
+
+  // Direct mode — report based on hardware mode
+  switch (d.mode) {
+    case 0x01: return climate::CLIMATE_ACTION_COOLING;
+    case 0x04: return climate::CLIMATE_ACTION_HEATING;
+    case 0x03: return climate::CLIMATE_ACTION_DRYING;
+    case 0x02: return climate::CLIMATE_ACTION_FAN;
+    case 0x05: {
+      // Auto mode — infer from current temp vs target
+      float target = (float)(d.temp + 16);
+      if (!std::isnan(this->current_temperature)) {
+        if (this->current_temperature > target + 1.0f)
+          return climate::CLIMATE_ACTION_COOLING;
+        else if (this->current_temperature < target - 1.0f)
+          return climate::CLIMATE_ACTION_HEATING;
+      }
+      return climate::CLIMATE_ACTION_IDLE;
+    }
+    default: return climate::CLIMATE_ACTION_IDLE;
+  }
 }
 
 // --- Swing control from select entities ---

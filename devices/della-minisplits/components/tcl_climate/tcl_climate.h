@@ -311,6 +311,7 @@ class TCLClimate : public climate::Climate, public uart::UARTDevice, public Poll
   static bool validate_xor_(const uint8_t *buf, int len);
 
   void apply_heat_cool_logic_();
+  climate::ClimateAction compute_action_();
 
   GetResponse last_resp_{};
   SetCommand set_cmd_{};
@@ -324,6 +325,9 @@ class TCLClimate : public climate::Climate, public uart::UARTDevice, public Poll
   bool heat_cool_mode_{false};
   float heat_cool_low_{18.0f};   // heat-to target (°C)
   float heat_cool_high_{25.0f};  // cool-to target (°C)
+
+  // Track what sub-mode heat_cool is actually commanding
+  uint8_t heat_cool_active_submode_{0};  // 0x01=cool, 0x04=heat, 0=idle
 
   VerticalSwing vswing_{VS_NONE};
   HorizontalSwing hswing_{HS_NONE};
