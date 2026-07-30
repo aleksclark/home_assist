@@ -13,12 +13,12 @@ job "minisplit-otel-poller" {
       driver = "docker"
 
       config {
-        image        = "minisplit-otel-poller:latest"
+        image        = "minisplit-otel-poller:v1"
         network_mode = "host"
       }
 
       env {
-        OTEL_EXPORTER_OTLP_ENDPOINT = "http://node-3:4318"
+        OTEL_EXPORTER_OTLP_ENDPOINT = "http://192.168.0.89:4318"
         MQTT_BROKER                 = "tcp://192.168.0.24:1883"
         POLL_INTERVAL               = "10s"
         DEVICES                     = "kitchen:192.168.0.4,livingroom:192.168.0.21,amos:192.168.0.25"
