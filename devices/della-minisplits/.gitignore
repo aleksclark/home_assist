@@ -6,3 +6,4 @@
 
 # OpenBeken firmware build (cloned source + Docker artifacts)
 /.build/
+/firmware/
