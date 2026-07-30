@@ -42,7 +42,7 @@ type Config struct {
 func loadConfig() Config {
 	cfg := Config{
 		OTLPEndpoint: getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://node-3:4318"),
-		MQTTBroker:   getEnv("MQTT_BROKER", "tcp://192.168.0.24:1883"),
+		MQTTBroker:   getEnv("MQTT_BROKER", "tcp://mqtt.fleet.clark.team:1883"),
 		PollInterval: 10 * time.Second,
 	}
 

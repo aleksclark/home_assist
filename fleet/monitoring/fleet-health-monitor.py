@@ -176,10 +176,10 @@ SERVICES = [
         "port": 53,
     },
     {
-        "name": "mosquitto",
-        "description": "Mosquitto MQTT TCP",
+        "name": "emqx",
+        "description": "EMQX MQTT VIP TCP",
         "check_type": "tcp",
-        "host": "mosquitto.fleet.clark.team",
+        "host": "mqtt.fleet.clark.team",
         "port": 1883,
     },
     # --- Application Services (deep health checks) ---

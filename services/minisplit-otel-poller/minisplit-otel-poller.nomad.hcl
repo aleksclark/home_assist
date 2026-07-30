@@ -19,7 +19,7 @@ job "minisplit-otel-poller" {
 
       env {
         OTEL_EXPORTER_OTLP_ENDPOINT = "http://192.168.0.89:4318"
-        MQTT_BROKER                 = "tcp://192.168.0.24:1883"
+        MQTT_BROKER                 = "tcp://mqtt.fleet.clark.team:1883"
         POLL_INTERVAL               = "10s"
         DEVICES                     = "kitchen:192.168.0.4,livingroom:192.168.0.21,amos:192.168.0.25"
       }
