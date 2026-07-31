@@ -5,7 +5,7 @@ job "homeassistant" {
   group "homeassistant" {
     count = 1
 
-    # Pin to node-3 — 32GB RAM, co-located with matter-server and mosquitto
+    # Pin to node-3 — 32GB RAM, co-located with matter-server
     constraint {
       attribute = "${node.unique.name}"
       value     = "node-3"
