@@ -39,6 +39,29 @@
     mode: "0640"
   notify: restart nomad
 
+- name: Remove legacy static MooseFS mount unit
+  ansible.builtin.file:
+    path: /etc/systemd/system/mnt-moosefs.mount
+    state: absent
+  notify: reload systemd
+
+- name: Create Nomad systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/nomad.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Wait for MooseFS readiness before starting Nomad
+  ansible.builtin.copy:
+    src: nomad-moosefs-ready.conf
+    dest: /etc/systemd/system/nomad.service.d/10-moosefs-ready.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
 - name: Remove consul dependency from nomad service
   ansible.builtin.lineinfile:
     path: /usr/lib/systemd/system/nomad.service

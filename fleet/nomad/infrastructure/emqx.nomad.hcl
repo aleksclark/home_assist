@@ -43,6 +43,7 @@ job "emqx" {
         EMQX_DASHBOARD__DEFAULT_USERNAME = "admin"
         EMQX_DASHBOARD__DEFAULT_PASSWORD = "emqx-fleet-2026"
         EMQX_LOG__CONSOLE__LEVEL         = "warning"
+        EMQX_RETAINER__BACKEND__STORAGE_TYPE = "disc"
       }
 
       resources {
@@ -118,6 +119,7 @@ job "emqx" {
         EMQX_DASHBOARD__DEFAULT_USERNAME = "admin"
         EMQX_DASHBOARD__DEFAULT_PASSWORD = "emqx-fleet-2026"
         EMQX_LOG__CONSOLE__LEVEL         = "warning"
+        EMQX_RETAINER__BACKEND__STORAGE_TYPE = "disc"
       }
 
       resources {
@@ -193,6 +195,7 @@ job "emqx" {
         EMQX_DASHBOARD__DEFAULT_USERNAME = "admin"
         EMQX_DASHBOARD__DEFAULT_PASSWORD = "emqx-fleet-2026"
         EMQX_LOG__CONSOLE__LEVEL         = "warning"
+        EMQX_RETAINER__BACKEND__STORAGE_TYPE = "disc"
       }
 
       resources {
