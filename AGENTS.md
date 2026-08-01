@@ -7,7 +7,7 @@ This repository holds all configuration, firmware, fleet management, and documen
 | Component                | Details                                                              |
 |--------------------------|----------------------------------------------------------------------|
 | **Home Assistant**       | Docker on `192.168.0.3` (migrating to Nomad fleet — see migration plan) |
-| **MQTT Broker**          | Mosquitto (Nomad job on fleet)                                       |
+| **MQTT Broker**          | EMQX 5.8 three-node cluster with keepalived VIP                      |
 | **ESPHome**              | CLI for compiling/flashing ESP32 devices                             |
 | **BLE Proxy Network**    | 6× ESP32-C3 nodes providing Bluetooth coverage to HA                |
 | **Compute Fleet**        | 3× Arch Linux nodes managed by Ansible, running Nomad + Consul      |
@@ -129,7 +129,7 @@ This repository holds all configuration, firmware, fleet management, and documen
 │   │   ├── blockyard-restart.yml
 │   │   └── blockyard-wipe-raft.yml
 │   ├── nomad/                          # Nomad job definitions (HCL)
-│   │   ├── infrastructure/             # mosquitto, cloudflared, omada, traefik,
+│   │   ├── infrastructure/             # emqx, cloudflared, omada, traefik,
 │   │   │                               # coredns, ddclient, otel-agent, signoz, idrive
 │   │   ├── home-automation/            # homeassistant, matter-server
 │   │   └── media/                      # jellyfin, qbittorrent, *arr suite,
@@ -252,7 +252,7 @@ A fourth node (the current NAS at `192.168.0.3`, Xeon E5-1620 v4, 32 GB, 4×5.5 
 
 | Job               | Purpose                                           |
 |-------------------|---------------------------------------------------|
-| mosquitto         | MQTT broker                                       |
+| emqx              | HA MQTT cluster behind keepalived VIP             |
 | cloudflared       | Cloudflare tunnel for external SSH                |
 | omada             | TP-Link Omada AP management (host network)        |
 | traefik           | Reverse proxy, Let's Encrypt wildcard (system job)|

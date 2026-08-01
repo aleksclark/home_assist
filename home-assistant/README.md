@@ -7,7 +7,7 @@ Docker-based Home Assistant instance running on `192.168.0.3`.
 | Integration        | Type         | Notes                                    |
 |--------------------|--------------|------------------------------------------|
 | ESPHome            | Native API   | BLE scanners, Della minisplits           |
-| MQTT (Mosquitto)   | MQTT         | Della mini splits via OpenBeken          |
+| MQTT (EMQX HA)     | MQTT         | Della mini splits via OpenBeken          |
 | Bluetooth Proxy    | BLE          | Via ESP32-C3 scanner nodes               |
 
 ## HVAC Zone Control
