@@ -16,8 +16,13 @@ endpoints:
   mqtt_broker_class: fqdn
   mqtt_broker: tcp://mqtt.fleet.clark.team:1883
   mqtt_resolved_vip_class: "192.168.0.100:1883"
-  otlp_class: fqdn
-  otlp: http://otel-collector.fleet.clark.team:4318
+  # Per-node otel-agent OTLP HTTP (Nomad interpolates placement node IP).
+  otlp_class: per_node_otel_agent
+  otlp: "http://${attr.unique.network.ip-address}:4328"
+  otlp_port: 4328
+  otlp_forbidden:
+    - otel-collector.fleet.clark.team:4318
+    - direct node IP :4318
   health_port: 9105
   health_paths:
     - /healthz
@@ -63,5 +68,8 @@ verification:
   - /metricsz device_count == expected_count
   - observe_only true on /metricsz
   - poll_ok increases; no control publish paths
-  - OTEL metrics arrive in collector/SigNoz by metric class/count only
+  - OTEL export via local otel-agent :4328 (POST accept + agent export counters)
+  - OTEL metrics arrive in collector/SigNoz by metric class/count only (not metricsz metric_ok alone)
   - FHM/HA/MQTT unaffected
+  # Endpoint health is verified externally (node :4328 + otel-agent/SigNoz).
+  # App /metricsz metric_ok is local Record only — not an export ACK.

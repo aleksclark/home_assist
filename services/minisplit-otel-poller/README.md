@@ -8,8 +8,9 @@ Observe-only OTEL/MQTT telemetry poller for Della minisplit units.
 - **Canonical jobspec:** `deploy/nomad/jobs/minisplit-otel-poller.nomad.hcl`
 - **Image:** `ghcr.io/aleksclark/minisplit-otel-poller` tag@digest (see `deploy/nomad/images.lock.hcl`)
 - **MQTT:** subscribe-only to `*/get` telemetry topics; broker `tcp://mqtt.fleet.clark.team:1883` (VIP `.100`)
-- **OTLP:** `http://otel-collector.fleet.clark.team:4318`
+- **OTLP:** per-node otel-agent `http://${attr.unique.network.ip-address}:4328` (not collector FQDN `:4318`)
 - **Health:** `:9105` `/healthz` `/readyz` `/metricsz`
+- **Export proof:** external — local `:4328` accept + otel-agent export counters + SigNoz service/metric class/counts. `/metricsz` `metric_ok` is local Record only, not export ACK.
 - **Secrets:** optional `nomad/jobs/minisplit-otel-poller` keys `mqtt_username`, `mqtt_password`
 
 ## Observe-only guarantee

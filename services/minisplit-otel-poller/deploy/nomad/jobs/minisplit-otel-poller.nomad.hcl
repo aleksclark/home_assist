@@ -62,8 +62,9 @@ job "minisplit-otel-poller" {
       env {
         # Durable fleet DNS — mqtt VIP resolves to 192.168.0.100:1883.
         MQTT_BROKER = "tcp://mqtt.fleet.clark.team:1883"
-        # Durable OTEL collector (never stale node-only authority).
-        OTEL_EXPORTER_OTLP_ENDPOINT = "http://otel-collector.fleet.clark.team:4318"
+        # Per-node otel-agent OTLP HTTP (local :4328). Same durable class as FHM.
+        # Never ship otel-collector FQDN :4318 (stale DNS / refused remote collector).
+        OTEL_EXPORTER_OTLP_ENDPOINT = "http://${attr.unique.network.ip-address}:4328"
         OTEL_RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT = "fleet"
         POLL_INTERVAL = "10s"
         HEALTH_ADDR   = ":9105"
