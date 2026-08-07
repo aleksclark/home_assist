@@ -54,7 +54,7 @@ job "minisplit-otel-poller" {
       config {
         # Pin updated post-release to exact linux/amd64 digest.
         # PLACEHOLDER_DIGEST replaced by pin PR after first GHCR publish.
-        image        = "ghcr.io/aleksclark/minisplit-otel-poller:v2026.8.0@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        image        = "ghcr.io/aleksclark/minisplit-otel-poller:v2026.8.0@sha256:ee9aea30da3aa9f65e96c98750b1e8de9b9ae0ef584925f0bf0e6a3bcda3dffb"
         network_mode = "host"
         ports        = ["health"]
       }
