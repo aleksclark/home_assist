@@ -1,0 +1,67 @@
+# Value-free deployment contract for minisplit-otel-poller.
+# Secrets are never stored here — key names only.
+
+job_id: minisplit-otel-poller
+classification: project-owned
+canonical_path: services/minisplit-otel-poller/deploy/nomad/jobs/minisplit-otel-poller.nomad.hcl
+statefulness: stateless
+observe_only: true
+
+image:
+  registry: ghcr.io
+  repository: aleksclark/minisplit-otel-poller
+  # tag + digest authority live in images.lock.hcl / jobspec pin
+
+endpoints:
+  mqtt_broker_class: fqdn
+  mqtt_broker: tcp://mqtt.fleet.clark.team:1883
+  mqtt_resolved_vip_class: "192.168.0.100:1883"
+  otlp_class: fqdn
+  otlp: http://otel-collector.fleet.clark.team:4318
+  health_port: 9105
+  health_paths:
+    - /healthz
+    - /readyz
+    - /metricsz
+
+secret_variable_path: nomad/jobs/minisplit-otel-poller
+secret_key_names:
+  - mqtt_username
+  - mqtt_password
+
+non_secret_env_keys:
+  - MQTT_BROKER
+  - OTEL_EXPORTER_OTLP_ENDPOINT
+  - OTEL_RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT
+  - POLL_INTERVAL
+  - HEALTH_ADDR
+  - DEVICES
+
+device_inventory:
+  source: env DEVICES
+  expected_count: 3
+  # names/IPs are operational inventory, not printed in audits beyond counts
+
+resources:
+  cpu: 100
+  memory_mb: 64
+
+update:
+  max_parallel: 1
+  auto_revert: true
+  health_check: checks
+
+rollback:
+  method: nomad auto_revert + previous image digest pin
+  purge: never
+
+verification:
+  - Stable=true latest deployment successful
+  - Restarts=0 on running alloc
+  - image digest matches images.lock.hcl
+  - MQTT connected (readyz 200) to mqtt.fleet.clark.team -> .100
+  - /metricsz device_count == expected_count
+  - observe_only true on /metricsz
+  - poll_ok increases; no control publish paths
+  - OTEL metrics arrive in collector/SigNoz by metric class/count only
+  - FHM/HA/MQTT unaffected

@@ -1,0 +1,101 @@
+name: Release minisplit-otel-poller
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "services/minisplit-otel-poller/**"
+      - ".github/workflows/release-minisplit-otel-poller.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache-dependency-path: services/minisplit-otel-poller/go.sum
+
+      - name: Tests
+        working-directory: services/minisplit-otel-poller
+        run: |
+          go test ./... -count=1
+          go test ./deploy/nomad/jobs -count=1
+
+      - name: Determine version
+        id: version
+        run: |
+          YEAR=$(date +%Y)
+          MONTH=$(date +%-m)
+          PREFIX="v${YEAR}.${MONTH}"
+          LATEST=$(git tag --list "minisplit-otel-poller/${PREFIX}.*" --sort=-v:refname | head -1)
+          if [ -z "$LATEST" ]; then
+            PATCH=0
+          else
+            PATCH=$(echo "$LATEST" | sed "s|minisplit-otel-poller/${PREFIX}\\.||")
+            PATCH=$((PATCH + 1))
+          fi
+          VERSION="${PREFIX}.${PATCH}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/minisplit-otel-poller
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ghcr.io/aleksclark/minisplit-otel-poller:${{ steps.version.outputs.version }}
+            ghcr.io/aleksclark/minisplit-otel-poller:latest
+          provenance: false
+          sbom: false
+
+      - name: Record digest
+        run: |
+          echo "digest=${{ steps.build.outputs.digest }}"
+          echo "image=ghcr.io/aleksclark/minisplit-otel-poller:${{ steps.version.outputs.version }}@${{ steps.build.outputs.digest }}"
+
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          TAG="minisplit-otel-poller/${{ steps.version.outputs.version }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: minisplit-otel-poller/${{ steps.version.outputs.version }}
+          name: minisplit-otel-poller ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          body: |
+            Image: `ghcr.io/aleksclark/minisplit-otel-poller:${{ steps.version.outputs.version }}`
+            Digest: `${{ steps.build.outputs.digest }}`
+
+            Observe-only MQTT/OTEL poller. Open a pin PR updating
+            `deploy/nomad/jobs/minisplit-otel-poller.nomad.hcl` and
+            `deploy/nomad/images.lock.hcl` before CAS deploy.
