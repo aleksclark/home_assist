@@ -57,16 +57,30 @@ func TestJobspecDurableEndpoints(t *testing.T) {
 	if !strings.Contains(body, `MQTT_BROKER = "tcp://mqtt.fleet.clark.team:1883"`) {
 		t.Fatal("MQTT_BROKER must be durable mqtt.fleet.clark.team:1883")
 	}
-	if !strings.Contains(body, `OTEL_EXPORTER_OTLP_ENDPOINT = "http://otel-collector.fleet.clark.team:4318"`) {
-		t.Fatal("OTLP must be durable otel-collector.fleet.clark.team:4318")
+	// Per-node otel-agent contract (same durable class as fleet-health-monitor).
+	wantOTLP := `OTEL_EXPORTER_OTLP_ENDPOINT = "http://${attr.unique.network.ip-address}:4328"`
+	if !strings.Contains(body, wantOTLP) {
+		t.Fatal("OTLP must be per-node otel-agent http://${attr.unique.network.ip-address}:4328")
 	}
-	// Reject known-stale node-2 broker IP as authority in env assignments.
+	// Reject stale collector FQDN / central :4318 / hardcoded node IPs as OTLP authority.
+	if strings.Contains(body, "otel-collector.fleet.clark.team") {
+		t.Fatal("stale otel-collector FQDN forbidden in jobspec; use per-node :4328 agent")
+	}
 	for _, line := range strings.Split(body, "\n") {
 		if strings.Contains(line, "MQTT_BROKER") && strings.Contains(line, "192.168.0.24") {
 			t.Fatal("stale node-2 MQTT broker forbidden")
 		}
-		if strings.Contains(line, "OTEL_EXPORTER_OTLP_ENDPOINT") && strings.Contains(line, "192.168.0.89") {
-			t.Fatal("stale node-3 OTLP IP forbidden; use durable collector FQDN")
+		if !strings.Contains(line, "OTEL_EXPORTER_OTLP_ENDPOINT") {
+			continue
+		}
+		if strings.Contains(line, "192.168.0.89") || strings.Contains(line, "192.168.0.41") {
+			t.Fatal("stale direct OTLP node IP forbidden; use attr.unique.network.ip-address:4328")
+		}
+		if strings.Contains(line, ":4318") {
+			t.Fatal("central collector :4318 forbidden; use local otel-agent :4328")
+		}
+		if strings.Contains(line, ":4328") && !strings.Contains(line, "${attr.unique.network.ip-address}") {
+			t.Fatal("OTLP :4328 must use Nomad attr.unique.network.ip-address interpolation")
 		}
 	}
 }
