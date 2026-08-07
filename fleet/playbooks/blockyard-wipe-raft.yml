@@ -7,7 +7,7 @@
 #   ansible-playbook playbooks/blockyard-wipe-raft.yml -l node-1   # single node only
 
 - name: Wipe Raft state and restart blockyard cluster
-  hosts: storage
+  hosts: blockyard
   become: true
   serial: 1
   order: sorted

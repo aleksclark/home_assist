@@ -7,7 +7,7 @@
 #   ansible-playbook playbooks/blockyard-restart.yml -l node-1   # single node only
 
 - name: Rolling restart blockyard cluster
-  hosts: storage
+  hosts: blockyard
   become: true
   serial: 1
   order: sorted

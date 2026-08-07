@@ -43,8 +43,8 @@
         blockyard_binary_path: "{{ blockyard_repo }}/target/release/blockyard"
         byard_binary_path: "{{ blockyard_repo }}/target/release/byard"
 
-- name: Deploy blockyard to storage nodes
-  hosts: storage
+- name: Deploy blockyard to blockyard cluster nodes
+  hosts: blockyard
   become: true
   serial: 1
   vars:

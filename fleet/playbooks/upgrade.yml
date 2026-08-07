@@ -79,10 +79,10 @@
       changed_when: false
       tags: [health]
 
-    - name: Health check — blockyard (storage nodes only)
+    - name: Health check — blockyard (blockyard group only)
       ansible.builtin.command:
         cmd: systemctl is-active blockyard
-      when: "'storage' in group_names"
+      when: "'blockyard' in group_names"
       register: blockyard_health
       failed_when: blockyard_health.rc != 0
       changed_when: false
