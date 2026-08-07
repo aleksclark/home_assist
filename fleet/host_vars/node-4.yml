@@ -7,6 +7,9 @@
 
 ansible_host: 192.168.0.41
 
+# Blockyard: intentionally NOT a Raft member. Inventory group `blockyard`
+# is nodes 1-3 only; do not re-enable blockyard.service on node-4.
+
 # Hardware specs
 machine_cpu_cores: 16
 machine_ram_gb: 64

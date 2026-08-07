@@ -10,8 +10,8 @@
     - nomad
   tags: [base]
 
-- name: Storage nodes — blockyard
-  hosts: storage
+- name: Blockyard cluster nodes
+  hosts: blockyard
   become: true
   roles:
     - blockyard
