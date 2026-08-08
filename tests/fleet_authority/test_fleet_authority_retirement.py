@@ -425,7 +425,7 @@ class TestWorkflowPresent(unittest.TestCase):
         self.assertIn("source_commit", text)
         self.assertNotRegex(text, r"git\s+fetch[^\n]*\|\|\s*true")
         self.assertNotIn("FLEET_AUTHORITY_BASE_REF: origin/master", text)
-        # Merge-order gate is a release/merge prerequisite, not branch unit CI.
+        # Merge-order gate is a hard fleet-first release/merge prerequisite.
         self.assertIn("check_fleet_iac_merge_order.py", text)
         self.assertRegex(
             text,
@@ -434,6 +434,99 @@ class TestWorkflowPresent(unittest.TestCase):
                 re.I,
             ),
         )
+
+    def test_workflow_materializes_private_fleet_iac_with_read_token(self):
+        """Hosted runners cannot read private fleet-iac via GITHUB_TOKEN.
+
+        Require a second SHA-pinned checkout of aleksclark/fleet-iac into
+        fleet-iac-canonical using secrets.FLEET_IAC_READ_TOKEN, fetch-depth 0,
+        with explicit preflight failure when the secret is missing.
+        """
+        wf = REPO_ROOT / ".github" / "workflows" / "ci-fleet-authority-guard.yml"
+        text = wf.read_text(encoding="utf-8")
+        checkouts = re.findall(
+            r"uses:\s*actions/checkout@([0-9a-f]{40})",
+            text,
+        )
+        self.assertGreaterEqual(
+            len(checkouts),
+            2,
+            "workflow must SHA-pin a second actions/checkout for private fleet-iac",
+        )
+        self.assertTrue(
+            all(re.fullmatch(r"[0-9a-f]{40}", c) for c in checkouts),
+            checkouts,
+        )
+        self.assertIn("aleksclark/fleet-iac", text)
+        self.assertIn("fleet-iac-canonical", text)
+        self.assertIn("secrets.FLEET_IAC_READ_TOKEN", text)
+        self.assertRegex(
+            text,
+            re.compile(
+                r"repository:\s*aleksclark/fleet-iac",
+            ),
+        )
+        self.assertRegex(
+            text,
+            re.compile(
+                r"path:\s*fleet-iac-canonical",
+            ),
+        )
+        # Second checkout must request full history for merge-base ancestry.
+        # Prefer the checkout step that sets repository: aleksclark/fleet-iac.
+        repo_m = re.search(
+            r"repository:\s*aleksclark/fleet-iac",
+            text,
+        )
+        self.assertIsNotNone(repo_m, "missing repository: aleksclark/fleet-iac checkout")
+        assert repo_m is not None  # for type checkers
+        idx = repo_m.start()
+        fi_block = text[max(0, idx - 500) : idx + 500]
+        self.assertRegex(
+            fi_block,
+            re.compile(r"fetch-depth:\s*0"),
+            "fleet-iac checkout must use fetch-depth: 0",
+        )
+        self.assertRegex(
+            fi_block,
+            re.compile(
+                r"token:\s*\$\{\{\s*secrets\.FLEET_IAC_READ_TOKEN\s*\}\}"
+            ),
+        )
+        self.assertRegex(
+            fi_block,
+            re.compile(r"path:\s*fleet-iac-canonical"),
+        )
+        # Fail-closed preflight when the read credential is unavailable.
+        self.assertTrue(
+            "FLEET_IAC_READ_TOKEN" in text
+            and (
+                "missing" in text.lower()
+                or "required" in text.lower()
+                or "unavailable" in text.lower()
+                or "not set" in text.lower()
+                or "empty" in text.lower()
+            ),
+            "workflow must preflight-fail clearly when FLEET_IAC_READ_TOKEN is unavailable",
+        )
+        # Never echo/print the token value (name in error text is OK).
+        self.assertNotRegex(
+            text,
+            re.compile(
+                r"(echo|printf|cat)\s+[\"']?\$\{?FLEET_IAC_READ_TOKEN",
+                re.I,
+            ),
+        )
+        self.assertNotRegex(
+            text,
+            re.compile(
+                r"(echo|printf)\s+.*\$\{\{\s*secrets\.FLEET_IAC_READ_TOKEN",
+                re.I,
+            ),
+        )
+        # No repository-variable path assumption for the private checkout.
+        self.assertNotIn("vars.FLEET_IAC_REPO", text)
+        self.assertNotRegex(text, r"FLEET_IAC_REPO:\s*\$\{\{\s*vars\.")
 
 
 
@@ -936,12 +1029,93 @@ class TestGuardAllowlistRegularFiles(unittest.TestCase):
             self.assertNotEqual(bad.returncode, 0, bad.stdout + bad.stderr)
 
 
-class TestMergeOrderSequencingGate(unittest.TestCase):
-    """Fail-closed release/merge prerequisite: canonical fleet-iac commit on mainline.
+def _write_merge_order_manifest(root: Path, canonical: str, *, mainline_ref: str = "origin/master", status: str = "pending") -> None:
+    (root / "fleet").mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "schema_version": 1,
+        "task": "9",
+        "source_commit": EXPECTED_SOURCE_COMMIT,
+        "canonical_repo": "aleksclark/fleet-iac",
+        "canonical_commit": canonical,
+        "merge_sequencing": {
+            "canonical_commit": canonical,
+            "canonical_mainline_ref": mainline_ref,
+            "canonical_mainline_status": status,
+            "home_assist_merge_blocked_until_canonical_on_mainline": True,
+            "note": "Do not merge home_assist Task 9 until canonical is on fleet-iac mainline.",
+        },
+        "entries": [],
+    }
+    (root / "fleet" / "MIGRATION_MANIFEST.json").write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
 
-    This is intentionally NOT a unit-CI hard-fail for the retirement branch while
-    the fleet-iac PR remains unmerged — the gate script/docs/workflow exist and
-    unit tests validate the contract shape + fail-closed behavior in fixtures.
+
+def _init_git_repo(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "t@example.com"],
+        cwd=path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "t"],
+        cwd=path,
+        check=True,
+        capture_output=True,
+    )
+
+
+def _commit_file(repo: Path, rel: str, content: str, message: str) -> str:
+    target = repo / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", message],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    return subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def _run_merge_order(
+    root: Path,
+    fleet_iac: Path,
+    *extra: str,
+    mainline_ref: str = "origin/master",
+) -> subprocess.CompletedProcess[str]:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    # Prefer explicit --fleet-iac; do not rely on FLEET_IAC_REPO path assumptions.
+    env.pop("FLEET_IAC_REPO", None)
+    cmd = [
+        sys.executable,
+        str(MERGE_ORDER_SCRIPT),
+        "--root",
+        str(root),
+        "--fleet-iac",
+        str(fleet_iac),
+        "--mainline-ref",
+        mainline_ref,
+        *extra,
+    ]
+    return subprocess.run(cmd, capture_output=True, text=True, env=env)
+
+
+class TestMergeOrderSequencingGate(unittest.TestCase):
+    """Fail-closed fleet-first merge-order gate against a private fleet-iac checkout.
+
+    home_assist is public; fleet-iac is private. Hosted CI must materialize
+    fleet-iac-canonical with FLEET_IAC_READ_TOKEN and hard-fail PR + master until
+    the pinned canonical commit is an ancestor of fleet-iac origin/master.
     """
 
     def test_merge_order_script_exists_and_documents_gate(self):
@@ -950,6 +1124,8 @@ class TestMergeOrderSequencingGate(unittest.TestCase):
         self.assertIn("canonical_commit", text)
         self.assertIn("mainline", text.lower())
         self.assertIn("merge", text.lower())
+        self.assertIn("merge-base", text)
+        self.assertIn("--is-ancestor", text)
 
     def test_readme_documents_merge_order_prerequisite(self):
         text = README_PATH.read_text(encoding="utf-8")
@@ -969,178 +1145,149 @@ class TestMergeOrderSequencingGate(unittest.TestCase):
             or "mainline" in text.lower()
         )
 
-    def test_merge_order_gate_fails_closed_when_canonical_not_on_mainline(self):
+    def test_agents_md_documents_merge_order_prerequisite_and_read_token(self):
+        agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        lowered = agents.lower()
+        self.assertTrue(
+            "merge-order" in lowered
+            or "merge order" in lowered
+            or "fleet-first" in lowered,
+            "AGENTS.md must document the fleet-first merge-order prerequisite",
+        )
+        self.assertIn("FLEET_IAC_READ_TOKEN", agents)
+        self.assertIn("fleet-iac-canonical", agents)
+        # Document credential setup without embedding secret values or 1Password.
+        self.assertNotRegex(agents, re.compile(r"1password|op://", re.I))
+        self.assertTrue(
+            "fine-grained" in lowered
+            or "read-only" in lowered
+            or "deploy" in lowered
+            or "contents: read" in lowered
+            or "repository secret" in lowered,
+            "AGENTS.md must document required read-only token/deploy credential setup",
+        )
+
+    def test_merge_order_gate_fails_closed_when_canonical_object_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            # minimal home_assist-like manifest
-            (root / "fleet").mkdir()
-            manifest = {
-                "schema_version": 1,
-                "task": "9",
-                "source_commit": EXPECTED_SOURCE_COMMIT,
-                "canonical_repo": "aleksclark/fleet-iac",
-                "canonical_commit": EXPECTED_CANONICAL_COMMIT,
-                "merge_sequencing": {
-                    "canonical_commit": EXPECTED_CANONICAL_COMMIT,
-                    "canonical_mainline_ref": "origin/master",
-                    "canonical_mainline_status": "pending",
-                    "home_assist_merge_blocked_until_canonical_on_mainline": True,
-                    "note": "Do not merge home_assist Task 9 until canonical is on fleet-iac mainline.",
-                },
-                "entries": [],
-            }
-            (root / "fleet" / "MIGRATION_MANIFEST.json").write_text(
-                json.dumps(manifest), encoding="utf-8"
-            )
-            # fake fleet-iac repo without the commit on mainline
-            fi = root / "fleet-iac"
-            fi.mkdir()
-            subprocess.run(["git", "init"], cwd=fi, check=True, capture_output=True)
-            subprocess.run(
-                ["git", "config", "user.email", "t@example.com"],
-                cwd=fi,
-                check=True,
-                capture_output=True,
-            )
-            subprocess.run(
-                ["git", "config", "user.name", "t"],
-                cwd=fi,
-                check=True,
-                capture_output=True,
-            )
-            (fi / "README.md").write_text("fi\n", encoding="utf-8")
-            subprocess.run(["git", "add", "."], cwd=fi, check=True, capture_output=True)
-            subprocess.run(
-                ["git", "commit", "-m", "init"],
-                cwd=fi,
-                check=True,
-                capture_output=True,
-            )
-            # mainline ref without canonical commit
+            fi = root / "fleet-iac-canonical"
+            _init_git_repo(fi)
+            _commit_file(fi, "README.md", "fi\n", "init")
             subprocess.run(
                 ["git", "branch", "-M", "master"], cwd=fi, check=True, capture_output=True
             )
-            env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-            env["FLEET_IAC_REPO"] = str(fi)
-            bad = subprocess.run(
-                [
-                    sys.executable,
-                    str(MERGE_ORDER_SCRIPT),
-                    "--root",
-                    str(root),
-                    "--fleet-iac",
-                    str(fi),
-                    "--mainline-ref",
-                    "master",
-                ],
+            # Simulate a fetched origin/master without the canonical object.
+            subprocess.run(
+                ["git", "update-ref", "refs/remotes/origin/master", "HEAD"],
+                cwd=fi,
+                check=True,
                 capture_output=True,
-                text=True,
-                env=env,
             )
+            _write_merge_order_manifest(root, EXPECTED_CANONICAL_COMMIT)
+            bad = _run_merge_order(root, fi, mainline_ref="origin/master")
             self.assertNotEqual(bad.returncode, 0, bad.stdout + bad.stderr)
             combined = (bad.stdout + bad.stderr).lower()
             self.assertTrue(
-                "mainline" in combined
-                or "not an ancestor" in combined
-                or "merge" in combined
-                or EXPECTED_CANONICAL_COMMIT[:7] in combined,
+                "not present" in combined
+                or "missing" in combined
+                or "cat-file" in combined
+                or EXPECTED_CANONICAL_COMMIT[:7] in combined
+                or "fail-closed" in combined,
                 combined,
             )
 
-    def test_merge_order_gate_passes_when_canonical_on_mainline(self):
+    def test_merge_order_gate_fails_closed_when_canonical_not_ancestor(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "fleet").mkdir()
-            fi = root / "fleet-iac"
-            fi.mkdir()
-            subprocess.run(["git", "init"], cwd=fi, check=True, capture_output=True)
+            fi = root / "fleet-iac-canonical"
+            _init_git_repo(fi)
+            _commit_file(fi, "README.md", "fi\n", "init")
+            # Canonical commit exists on a side branch, not on origin/master.
             subprocess.run(
-                ["git", "config", "user.email", "t@example.com"],
+                ["git", "checkout", "-b", "feature"],
                 cwd=fi,
                 check=True,
                 capture_output=True,
             )
+            canon = _commit_file(fi, "canon.txt", "c\n", "canonical")
             subprocess.run(
-                ["git", "config", "user.name", "t"],
+                ["git", "checkout", "master"],
                 cwd=fi,
                 check=True,
                 capture_output=True,
             )
-            (fi / "README.md").write_text("fi\n", encoding="utf-8")
-            subprocess.run(["git", "add", "."], cwd=fi, check=True, capture_output=True)
-            subprocess.run(
-                ["git", "commit", "-m", "init"],
-                cwd=fi,
-                check=True,
-                capture_output=True,
-            )
-            # Create a commit and record its sha as "canonical"
-            (fi / "canon.txt").write_text("c\n", encoding="utf-8")
-            subprocess.run(["git", "add", "."], cwd=fi, check=True, capture_output=True)
-            subprocess.run(
-                ["git", "commit", "-m", "canonical"],
-                cwd=fi,
-                check=True,
-                capture_output=True,
-            )
-            canon = subprocess.run(
-                ["git", "-C", str(fi), "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout.strip()
+            # Divergent mainline tip (does not contain canonical).
+            _commit_file(fi, "mainline.txt", "m\n", "mainline-only")
             subprocess.run(
                 ["git", "branch", "-M", "master"], cwd=fi, check=True, capture_output=True
             )
-            manifest = {
-                "schema_version": 1,
-                "task": "9",
-                "canonical_commit": canon,
-                "merge_sequencing": {
-                    "canonical_commit": canon,
-                    "canonical_mainline_ref": "master",
-                    "canonical_mainline_status": "merged",
-                    "home_assist_merge_blocked_until_canonical_on_mainline": True,
-                },
-                "entries": [],
-            }
-            (root / "fleet" / "MIGRATION_MANIFEST.json").write_text(
-                json.dumps(manifest), encoding="utf-8"
-            )
-            ok = subprocess.run(
-                [
-                    sys.executable,
-                    str(MERGE_ORDER_SCRIPT),
-                    "--root",
-                    str(root),
-                    "--fleet-iac",
-                    str(fi),
-                    "--mainline-ref",
-                    "master",
-                ],
+            subprocess.run(
+                ["git", "update-ref", "refs/remotes/origin/master", "HEAD"],
+                cwd=fi,
+                check=True,
                 capture_output=True,
-                text=True,
             )
-            self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+            _write_merge_order_manifest(root, canon, status="pending")
+            bad = _run_merge_order(root, fi, mainline_ref="origin/master")
+            self.assertNotEqual(bad.returncode, 0, bad.stdout + bad.stderr)
+            combined = (bad.stdout + bad.stderr).lower()
+            self.assertTrue(
+                "not an ancestor" in combined
+                or "merge-order" in combined
+                or "mainline" in combined
+                or "gate" in combined,
+                combined,
+            )
 
-    def test_unit_ci_does_not_hard_fail_merge_order_while_pending(self):
-        """Branch CI may invoke the gate in report-only/soft mode; not as unit failure."""
+    def test_merge_order_gate_passes_when_canonical_is_ancestor_of_origin_master(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fi = root / "fleet-iac-canonical"
+            _init_git_repo(fi)
+            _commit_file(fi, "README.md", "fi\n", "init")
+            canon = _commit_file(fi, "canon.txt", "c\n", "canonical")
+            # Later mainline commit still has canonical as ancestor.
+            _commit_file(fi, "later.txt", "l\n", "later")
+            subprocess.run(
+                ["git", "branch", "-M", "master"], cwd=fi, check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "update-ref", "refs/remotes/origin/master", "HEAD"],
+                cwd=fi,
+                check=True,
+                capture_output=True,
+            )
+            _write_merge_order_manifest(root, canon, status="merged")
+            ok = _run_merge_order(root, fi, mainline_ref="origin/master")
+            self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+            self.assertIn("ok", (ok.stdout + ok.stderr).lower())
+
+    def test_workflow_hard_fails_merge_order_on_pr_and_master(self):
+        """PR sequencing and master pushes both hard-fail until canonical is on mainline."""
         wf = (REPO_ROOT / ".github" / "workflows" / "ci-fleet-authority-guard.yml").read_text(
             encoding="utf-8"
         )
-        # Unit discover path must not require fleet-iac network or hard-fail merge order.
-        # Merge-order check is a separate job/step gated as release/merge prerequisite.
         self.assertIn("check_fleet_iac_merge_order.py", wf)
-        # Soft/report path markers — continue-on-error OR if: false on PR OR explicit soft flag
-        soft = (
-            "continue-on-error: true" in wf
-            or "--soft" in wf
-            or "report-only" in wf
-            or "merge-prerequisite" in wf
-            or "release-prerequisite" in wf
-            or "if: github.event_name" in wf
+        self.assertIn("fleet-iac-canonical", wf)
+        self.assertIn("--fleet-iac", wf)
+        self.assertIn("origin/master", wf)
+        # No soft/advisory path: remove continue-on-error and --soft/--report-only.
+        self.assertNotIn("continue-on-error", wf)
+        self.assertNotIn("--soft", wf)
+        self.assertNotIn("--report-only", wf)
+        # Must invoke against the materialized private checkout path.
+        self.assertRegex(
+            wf,
+            re.compile(
+                r"check_fleet_iac_merge_order\.py[\s\S]{0,400}fleet-iac-canonical"
+            ),
         )
-        self.assertTrue(soft, "workflow must not hard-fail unit CI on pending merge-order")
+        self.assertRegex(
+            wf,
+            re.compile(r"--mainline-ref\s+origin/master"),
+        )
+        # Must not depend on repository variable path assumptions.
+        self.assertNotIn("vars.FLEET_IAC_REPO", wf)
 
 
 if __name__ == "__main__":

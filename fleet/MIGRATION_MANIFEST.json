@@ -1402,6 +1402,6 @@
     "canonical_mainline_ref": "origin/master",
     "canonical_mainline_status": "pending",
     "home_assist_merge_blocked_until_canonical_on_mainline": true,
-    "note": "Release/merge prerequisite: home_assist Task 9 is NOT merge-ready until canonical_commit is an ancestor of fleet-iac mainline (origin/master). The fleet-iac PR that carries 234115bf remains intentionally unmerged; do not retarget the canonical pin until that PR merges. Enforce via tools/fleet_authority_guard/check_fleet_iac_merge_order.py (fail-closed for merge-ready; soft/report-only on branch CI)."
+    "note": "Fleet-first merge-order prerequisite: home_assist Task 9 is NOT merge-ready until canonical_commit is an ancestor of fleet-iac mainline (origin/master). The fleet-iac PR that carries 234115bf remains intentionally unmerged; do not retarget the canonical pin until that PR merges. Enforce via tools/fleet_authority_guard/check_fleet_iac_merge_order.py against a private checkout at fleet-iac-canonical (FLEET_IAC_READ_TOKEN). CI hard-fails on PR and master until mainline contains the canonical commit."
   }
 }

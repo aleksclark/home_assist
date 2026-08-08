@@ -4,10 +4,15 @@
 Home Assistant's Task 9 PR is merge-ready only after the pinned canonical
 fleet-iac commit is an ancestor of fleet-iac mainline (origin/master).
 
-This is a release/merge prerequisite, not a branch unit-CI hard failure while
-the fleet-iac PR remains intentionally unmerged. CI may invoke this script in
-soft/report-only mode on pull_request; merge-to-master / release paths must
-run it fail-closed (default).
+Fleet-first contract:
+- home_assist is public; aleksclark/fleet-iac is private.
+- Hosted CI must materialize fleet-iac at path fleet-iac-canonical via a
+  dedicated read credential (FLEET_IAC_READ_TOKEN) — never assume
+  GITHUB_TOKEN or a repository variable path can see the private repo.
+- Callers pass --fleet-iac explicitly (recommended). FLEET_IAC_REPO remains
+  a local/dev override only.
+- Default mode is fail-closed. Soft/report-only exists for local diagnostics
+  only; CI must not use it for PR or master merge gates.
 
 Do not retarget the canonical pin until the fleet-iac PR merges.
 """
@@ -22,10 +27,11 @@ import sys
 from pathlib import Path
 
 TOOL_NAME = "check_fleet_iac_merge_order"
-TOOL_VERSION = "1.0.0"
+TOOL_VERSION = "1.1.0"
 
 DEFAULT_MANIFEST = Path("fleet/MIGRATION_MANIFEST.json")
 DEFAULT_MAINLINE = "origin/master"
+DEFAULT_FLEET_IAC_CHECKOUT = Path("fleet-iac-canonical")
 
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -83,7 +89,9 @@ def check(
     if not fleet_iac.exists():
         msgs.append(
             f"fleet-iac repo not found at {fleet_iac}; "
-            f"cannot verify canonical {canonical[:7]} is on mainline {mainline}"
+            f"cannot verify canonical {canonical[:7]} is on mainline {mainline}. "
+            f"Hosted CI must checkout aleksclark/fleet-iac to fleet-iac-canonical "
+            f"using secrets.FLEET_IAC_READ_TOKEN (fail-closed)."
         )
         # Fail closed for merge-ready checks when repo missing.
         return (0 if soft else 1, msgs)
@@ -97,10 +105,9 @@ def check(
         )
         return (0 if soft else 1, msgs)
 
-    # Resolve mainline tip
+    # Resolve mainline tip (prefer fetched origin/master from private checkout).
     rev = _git(fleet_iac, "rev-parse", "--verify", mainline)
-    if rev.returncode != 0:
-        # try bare branch name
+    if rev.returncode != 0 and mainline != mainline_ref:
         rev = _git(fleet_iac, "rev-parse", "--verify", mainline_ref)
     if rev.returncode != 0:
         msgs.append(
@@ -134,30 +141,40 @@ def main(argv: list[str] | None = None) -> int:
         "--fleet-iac",
         type=Path,
         default=None,
-        help="Path to local fleet-iac checkout (or set FLEET_IAC_REPO).",
+        help=(
+            "Path to fleet-iac checkout (CI: fleet-iac-canonical). "
+            "Optional local override: env FLEET_IAC_REPO. "
+            "Default path when unset: fleet-iac-canonical under --root."
+        ),
     )
     p.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     p.add_argument("--mainline-ref", default=DEFAULT_MAINLINE)
     p.add_argument(
         "--soft",
         action="store_true",
-        help="Report-only: always exit 0 (branch CI). Default is fail-closed.",
+        help="Report-only: always exit 0 (local diagnostics only). Default is fail-closed.",
     )
     p.add_argument(
         "--report-only",
         action="store_true",
-        help="Alias for --soft (release-prerequisite soft mode).",
+        help="Alias for --soft (local diagnostics only; CI must not use this).",
     )
     args = p.parse_args(argv)
 
+    root = args.root.resolve()
     fleet_iac = args.fleet_iac
     if fleet_iac is None:
         env_path = os.environ.get("FLEET_IAC_REPO")
-        fleet_iac = Path(env_path) if env_path else Path("/nonexistent-fleet-iac")
+        if env_path:
+            fleet_iac = Path(env_path)
+        else:
+            # Prefer the CI-materialized private checkout path under root.
+            candidate = root / DEFAULT_FLEET_IAC_CHECKOUT
+            fleet_iac = candidate if candidate.exists() else DEFAULT_FLEET_IAC_CHECKOUT
 
     soft = bool(args.soft or args.report_only)
     code, msgs = check(
-        root=args.root.resolve(),
+        root=root,
         fleet_iac=Path(fleet_iac).resolve(),
         manifest_rel=args.manifest,
         mainline_ref=args.mainline_ref,

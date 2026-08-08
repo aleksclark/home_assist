@@ -177,6 +177,27 @@ Project-owned jobspecs that remain in **this** repo (example):
 nomad job run services/minisplit-otel-poller/deploy/nomad/jobs/minisplit-otel-poller.nomad.hcl
 ```
 
+### Fleet-first merge-order prerequisite (Task 9)
+
+Task 9 retirement merges **fleet-first**: `home_assist` must not merge (PR or master)
+until the pinned canonical commit in `fleet/MIGRATION_MANIFEST.json`
+(`merge_sequencing.canonical_commit`) is an ancestor of `aleksclark/fleet-iac`
+`origin/master`.
+
+- Gate: `tools/fleet_authority_guard/check_fleet_iac_merge_order.py`
+- CI workflow: `.github/workflows/ci-fleet-authority-guard.yml` (hard-fail on PR + master;
+  no soft/`continue-on-error` path)
+- Hosted runners check out private `aleksclark/fleet-iac` into `fleet-iac-canonical`
+  with `fetch-depth: 0` using repository secret **`FLEET_IAC_READ_TOKEN`**
+- This repo is public; `GITHUB_TOKEN` cannot read private `fleet-iac`. Missing
+  `FLEET_IAC_READ_TOKEN` fails closed with a clear preflight error (token value is
+  never printed)
+
+**Required credential (setup only — do not commit values):** create a read-only
+fine-grained GitHub PAT (or equivalent deploy credential) with `contents: read` on
+`aleksclark/fleet-iac` only, then add it as repository secret `FLEET_IAC_READ_TOKEN`
+on `aleksclark/home_assist`. Prefer least privilege; rotate if exposed.
+
 ## Current Device Inventory
 
 ### Active
