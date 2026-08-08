@@ -1,6 +1,6 @@
 # AGENTS.md — Home Automation & Fleet
 
-This repository holds all configuration, firmware, fleet management, and documentation for a Home Assistant-based home automation system backed by an Ansible-managed compute fleet.
+This repository holds Home Assistant configuration, firmware, device sources, and project jobspecs. Fleet Ansible/Nomad control-plane authority has moved to aleksclark/fleet-iac (see fleet/README.md).
 
 ## Infrastructure
 
@@ -10,7 +10,7 @@ This repository holds all configuration, firmware, fleet management, and documen
 | **MQTT Broker**          | Mosquitto (Nomad job on fleet)                                       |
 | **ESPHome**              | CLI for compiling/flashing ESP32 devices                             |
 | **BLE Proxy Network**    | 6× ESP32-C3 nodes providing Bluetooth coverage to HA                |
-| **Compute Fleet**        | 3× Arch Linux nodes managed by Ansible, running Nomad + Consul      |
+| **Compute Fleet**        | Arch Linux nodes managed via `aleksclark/fleet-iac` (Ansible + Nomad) |
 | **Distributed Storage**  | MooseFS 4.58.4 across fleet nodes (~26 TB raw)                      |
 | **Reverse Proxy**        | Traefik (Nomad system job) with Let's Encrypt wildcard via Cloudflare DNS-01 |
 | **Monitoring**           | SigNoz + OpenTelemetry agent (fleet-wide), MooseFS poller           |
@@ -103,44 +103,9 @@ This repository holds all configuration, firmware, fleet management, and documen
 │       ├── custom_components/
 │       └── blueprints/
 │
-├── fleet/                              # Ansible-managed compute fleet
-│   ├── README.md                       # architecture, stack, quick start
-│   ├── ansible.cfg
-│   ├── inventory/
-│   │   └── hosts.yml
-│   ├── group_vars/
-│   │   ├── all.yml                     # users, SSH, base packages, mirrors
-│   │   ├── storage.yml                 # blockyard / MooseFS disk config
-│   │   └── compute.yml                 # Docker workload nodes
-│   ├── host_vars/
-│   │   ├── node-1.yml                  # Dell Inspiron 660 — Nomad server + MooseFS master
-│   │   ├── node-2.yml                  # Dell OptiPlex 9010 — heavy compute + metalogger
-│   │   └── node-3.yml                  # Dell OptiPlex 7020 — compute + chunkserver
-│   ├── roles/
-│   │   ├── base/                       # Arch baseline: pacman, snapper, users, SSH
-│   │   ├── nomad/
-│   │   ├── consul/
-│   │   ├── docker/
-│   │   └── blockyard/                  # distributed block storage daemon
-│   ├── playbooks/
-│   │   ├── site.yml                    # full converge
-│   │   ├── upgrade.yml                 # rolling upgrade with snapshot/rollback
-│   │   ├── deploy-blockyard.yml
-│   │   ├── blockyard-restart.yml
-│   │   └── blockyard-wipe-raft.yml
-│   ├── nomad/                          # Nomad job definitions (HCL)
-│   │   ├── infrastructure/             # mosquitto, cloudflared, omada, traefik,
-│   │   │                               # coredns, ddclient, otel-agent, signoz, idrive
-│   │   ├── home-automation/            # homeassistant, matter-server
-│   │   └── media/                      # jellyfin, qbittorrent, *arr suite,
-│   │                                   # photoprism, readarr, speakarr
-│   ├── monitoring/
-│   │   └── moosefs-poller.py           # MooseFS → OTLP metrics exporter
-│   └── archiso/                        # custom Arch ISO for USB bootstrap
-│       ├── build.sh                    # --inject-key to bake in SSH pubkey
-│       ├── profiledef.sh
-│       ├── packages.x86_64
-│       └── airootfs/
+├── fleet/                              # RETIRED authority pointer (see fleet/README.md)
+│   ├── README.md                       # MOVED → aleksclark/fleet-iac platform/ansible + jobs/
+│   └── MIGRATION_MANIFEST.json         # value-free path classification / provenance
 │
 └── bt_track/                           # BK7231 flasher (legacy copy)
     └── flasher/
@@ -153,7 +118,7 @@ This repository holds all configuration, firmware, fleet management, and documen
 - **`devices/<project>/`** — Each device type or project gets its own directory. ESPHome YAML configs and Rust firmware live alongside the project they belong to.
 - **`esphome/common/`** — Shared YAML packages (`!include` targets) for WiFi, API, OTA to reduce duplication across device configs.
 - **`libs/`** — Shared Rust libraries and KiCad assets used by multiple device projects.
-- **`fleet/`** — Ansible inventory, roles, playbooks, Nomad job definitions, and fleet tooling.
+- **`fleet/`** — Retired control-plane pointer + migration manifest only. Active fleet IaC: `aleksclark/fleet-iac`.
 - **`tools/`** — Flashing utilities, firmware binaries, and helper scripts.
 - **`home-assistant/`** — HA-side configuration: automations, MQTT entities, input helpers, pyscript, and config snapshots.
 
@@ -196,21 +161,20 @@ esphome logs devices/ble-scanners/ble-scanner-kitchen.yaml
 
 ## Fleet Commands
 
+Fleet Ansible/Nomad authority is **not** in this repository.
+
+Use `aleksclark/fleet-iac`:
+
+- Ansible control plane: `platform/ansible` (inventory, roles, playbooks)
+- Fleet-owned Nomad jobs: `jobs/`
+- Bootstrap ISO: `platform/archiso`
+- Classification of what used to live here: `fleet/MIGRATION_MANIFEST.json`
+
+Project-owned jobspecs that remain in **this** repo (example):
+
 ```bash
-# Full converge (all nodes, all roles)
-cd fleet && ansible-playbook -i inventory/hosts.yml playbooks/site.yml
-
-# Rolling upgrade with btrfs snapshot + rollback
-ansible-playbook -i inventory/hosts.yml playbooks/upgrade.yml
-
-# Deploy blockyard to storage nodes
-ansible-playbook -i inventory/hosts.yml playbooks/deploy-blockyard.yml --limit storage
-
-# Build custom Arch ISO for bootstrapping new nodes
-cd fleet/archiso && ./build.sh --inject-key ~/.ssh/id_ed25519.pub
-
-# Submit a Nomad job
-nomad job run fleet/nomad/media/jellyfin.nomad.hcl
+# Minisplit OTEL poller (project-owned under services/)
+nomad job run services/minisplit-otel-poller/deploy/nomad/jobs/minisplit-otel-poller.nomad.hcl
 ```
 
 ## Current Device Inventory
@@ -248,7 +212,10 @@ A fourth node (the current NAS at `192.168.0.3`, Xeon E5-1620 v4, 32 GB, 4×5.5 
 
 ## Nomad Services
 
-### Infrastructure (`fleet/nomad/infrastructure/`)
+Fleet-owned jobspecs live in `aleksclark/fleet-iac` under `jobs/` (not in this repo).
+Project-owned examples that remain here: `services/minisplit-otel-poller/`.
+
+### Infrastructure (fleet-iac `jobs/platform/` + `jobs/home/`)
 
 | Job               | Purpose                                           |
 |-------------------|---------------------------------------------------|
@@ -263,14 +230,14 @@ A fourth node (the current NAS at `192.168.0.3`, Xeon E5-1620 v4, 32 GB, 4×5.5 
 | idrive            | Backup agent                                      |
 | moosefs-poller    | MooseFS metrics → OTLP                            |
 
-### Home Automation (`fleet/nomad/home-automation/`)
+### Home Automation (fleet-iac `jobs/home/`)
 
 | Job               | Purpose                                           |
 |-------------------|---------------------------------------------------|
 | homeassistant     | Home Assistant (host network, privileged)          |
 | matter-server     | Matter protocol server (host network)              |
 
-### Media (`fleet/nomad/media/`)
+### Media (fleet-iac `jobs/media/`)
 
 | Job           | Purpose                                               |
 |---------------|-------------------------------------------------------|

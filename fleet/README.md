@@ -1,130 +1,29 @@
-# Fleet Management
+# MOVED — Fleet Ansible / Nomad authority retired
 
-Ansible-based management for a heterogeneous compute fleet running Arch Linux.
+**This tree is no longer an executable fleet control plane.**
 
-## Architecture
+Sole active authority lives in:
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                     CONTROL PLANE                            │
-│                                                              │
-│  This machine (Aleks's workstation)                          │
-│  ├── Ansible controller                                      │
-│  ├── Consul server (single-node for now)                     │
-│  └── Nomad server (single-node for now)                      │
-└──────────────┬───────────────────────────────────────────────┘
-               │ SSH + Consul gossip + Nomad RPC
-    ┌──────────┼──────────┐
-    │          │          │
-    ▼          ▼          ▼
-┌────────┐ ┌────────┐ ┌────────┐
-│ Node 1 │ │ Node 2 │ │ Node N │   Old desktops, varying specs
-│        │ │        │ │        │
-│ Consul │ │ Consul │ │ Consul │   Agent mode
-│ Nomad  │ │ Nomad  │ │ Nomad  │   Client mode
-│        │ │        │ │        │
-│ Roles: │ │ Roles: │ │ Roles: │   Per-node via host_vars
-│ storage│ │ docker │ │ both   │
-│ byard  │ │        │ │        │
-└────────┘ └────────┘ └────────┘
-```
+| Concern | Canonical location |
+|---------|-------------------|
+| Ansible inventory, group/host vars, roles, playbooks | [`aleksclark/fleet-iac`](https://github.com/aleksclark/fleet-iac) → `platform/ansible` |
+| Fleet-owned Nomad jobspecs | `aleksclark/fleet-iac` → `jobs/` |
+| Credential-free bootstrap ISO | `aleksclark/fleet-iac` → `platform/archiso` |
+| Monitoring scripts used by fleet jobs | `aleksclark/fleet-iac` → `platform/scripts` |
+| Project-owned jobs (e.g. minisplit-otel-poller) | remain under this repo’s `services/` (not under `fleet/`) |
 
-## Stack
+## What was removed
 
-| Component | Purpose | Package Source |
-|-----------|---------|---------------|
-| **Ansible** | Configuration management | Control machine only (pip/pacman) |
-| **Nomad** | Workload scheduling | `pacman -S nomad` (official Extra repo) |
-| **Consul** | Service discovery + health | `pacman -S consul` (official Extra repo) |
-| **Docker** | Container runtime for Nomad | `pacman -S docker` |
-| **Blockyard** | Distributed block storage | Built from source, deployed as binary |
-| **Snapper + snap-pac** | Btrfs snapshot rollback | `pacman -S snapper snap-pac grub-btrfs` |
+Duplicate executable authority previously under `fleet/` — `ansible.cfg`, `inventory/`, `group_vars/`, `host_vars/`, active `roles/`, `playbooks/`, and fleet platform `nomad/` jobspecs — has been deleted from `home_assist`.
 
-## Disk Layout (per node)
+See the value-free classification/provenance report:
 
-```
-/dev/sda (or nvme0n1)           — OS disk
-  ├── /dev/sda1  EFI (512MB, FAT32)
-  └── /dev/sda2  Root (rest, btrfs)
-       ├── @           → /
-       ├── @home       → /home
-       ├── @snapshots  → /.snapshots
-       └── @var_log    → /var/log
+- [`MIGRATION_MANIFEST.json`](./MIGRATION_MANIFEST.json)
 
-/dev/sdb, /dev/sdc, ...        — Data disks (XFS, for blockyard)
-  └── mounted at /data/disk0, /data/disk1, ...
-```
+## Do not use this directory as a control plane
 
-## Quick Start
+- Do **not** run Ansible against paths under `home_assist/fleet`.
+- Do **not** submit Nomad jobs from `home_assist/fleet` (there are none).
+- Do **not** reintroduce inventories, roles, playbooks, or fleet Nomad jobspecs here — CI fails closed on reintroduction (`tools/fleet_authority_guard/`).
 
-### 1. Bootstrap a new machine
-
-Flash `fleet/archiso/` to USB, boot the target machine from it.
-The ISO auto-starts SSH so an agent can connect and run the install.
-
-```bash
-# Build the ISO
-cd fleet/archiso && ./build.sh --inject-key ~/.ssh/id_ed25519.pub
-
-# Write to USB
-sudo dd bs=4M if=out/fleet-bootstrap-*.iso of=/dev/sdX status=progress oflag=sync
-
-# Boot the target machine, then tell your AI agent:
-# "New machine is up at 192.168.0.15, bootstrap it as node1"
-#
-# The agent will:
-#   1. SSH in and inspect hardware (disks, CPU, RAM, GPU, boot mode)
-#   2. Propose a disk layout and ask you to confirm
-#   3. Partition, format, pacstrap, configure
-#   4. Reboot into the installed system
-#   5. Add to inventory and run Ansible converge
-#
-# See: hermes skill fleet-bootstrap
-```
-
-### 2. Deploy to existing fleet
-
-```bash
-# Full converge
-ansible-playbook -i inventory/hosts.yml playbooks/site.yml
-
-# Rolling upgrade with snapshot + rollback
-ansible-playbook -i inventory/hosts.yml playbooks/upgrade.yml
-```
-
-### 3. Deploy blockyard
-
-```bash
-ansible-playbook -i inventory/hosts.yml playbooks/deploy-blockyard.yml --limit storage
-```
-
-## Directory Structure
-
-```
-fleet/
-├── README.md
-├── ansible.cfg
-├── inventory/
-│   └── hosts.yml           # All machines, grouped by role
-├── group_vars/
-│   ├── all.yml             # Common: users, SSH, base packages, mirrors
-│   ├── storage.yml         # Blockyard nodes: XFS disks, data paths
-│   └── compute.yml         # Docker/container workload nodes
-├── host_vars/
-│   └── example-node.yml    # Per-machine overrides (disk layout, specs)
-├── roles/
-│   ├── base/               # Arch baseline: pacman, snapper, users, SSH, sysctl
-│   ├── nomad/              # Nomad client agent
-│   ├── consul/             # Consul client agent
-│   ├── blockyard/          # Blockyard node daemon
-│   └── docker/             # Docker + Nomad docker driver
-├── playbooks/
-│   ├── site.yml            # Full converge (all roles)
-│   ├── upgrade.yml         # Rolling upgrade with snapshot/rollback
-│   └── deploy-blockyard.yml
-└── archiso/                # Custom Arch ISO for USB bootstrap
-    ├── build.sh            # Build script (--inject-key to add SSH pubkey)
-    ├── profiledef.sh
-    ├── packages.x86_64
-    └── airootfs/           # Files baked into the ISO (SSH enabled, root:fleet)
-```
+Home Assistant application config, ESPHome/device sources, and project jobspecs under `services/` are unchanged and remain in this repository.

@@ -1,9 +1,0 @@
-{
-  "dns": ["{{ ansible_default_ipv4.address }}", "1.1.1.1"],
-  "log-driver": "json-file",
-  "log-opts": {
-    "tag": "{% raw %}{{.Name}}{% endraw %}",
-    "max-size": "50m",
-    "max-file": "3"
-  }
-}

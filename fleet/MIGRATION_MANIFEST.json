@@ -1,0 +1,1411 @@
+{
+  "schema_version": 1,
+  "task": "9",
+  "title": "Retire duplicate Home Assistant fleet Ansible/Nomad authority",
+  "source_repo": "aleksclark/home_assist",
+  "source_ref": "origin/master",
+  "source_commit": "8d23d803377d9b0434b4543825be5ae57a65253b",
+  "canonical_repo": "aleksclark/fleet-iac",
+  "canonical_commit": "234115bfb1afbf01838656bb48dc27c2a008acd8",
+  "canonical_ansible_root": "platform/ansible",
+  "canonical_jobs_root": "jobs/",
+  "canonical_archiso_root": "platform/archiso",
+  "canonical_scripts_root": "platform/scripts",
+  "classification_actions": [
+    "migrate",
+    "retire",
+    "retain-non-authoritative"
+  ],
+  "classification_notes": {
+    "migrate": "Already present (exact or transformed) under aleksclark/fleet-iac; remove executable duplicate from home_assist.",
+    "retire": "No deploy path remains; deleted from home_assist without a same-shape canonical successor (or project-owned elsewhere).",
+    "retain-non-authoritative": "Kept only when unique non-executable documentation/reference remains. Task 9 found no such unique fleet/** artifacts after classification \u2014 archiso and monitoring are superseded by fleet-iac credential-free trees and are classified migrate (delete local copies)."
+  },
+  "allowlist_paths": [
+    "fleet/README.md",
+    "fleet/MIGRATION_MANIFEST.json"
+  ],
+  "allowlist_path_prefixes": [
+    "fleet/README.md",
+    "fleet/MIGRATION_MANIFEST.json"
+  ],
+  "forbidden_reintroduction": {
+    "prefixes": [
+      "fleet/ansible.cfg",
+      "fleet/inventory/",
+      "fleet/group_vars/",
+      "fleet/host_vars/",
+      "fleet/roles/",
+      "fleet/playbooks/",
+      "fleet/nomad/",
+      "fleet/ansible/",
+      "fleet/jobs/"
+    ],
+    "shapes": [
+      "fleet/**/ansible.cfg",
+      "fleet/**/hosts.yml",
+      "fleet/**/*.nomad.hcl",
+      "fleet/**/*.nomad",
+      "fleet/**/site.yml"
+    ]
+  },
+  "entry_count": 169,
+  "action_counts": {
+    "retire": 18,
+    "migrate": 151
+  },
+  "entries": [
+    {
+      "path": "fleet/README.md",
+      "action": "retire",
+      "canonical": "platform/ansible/README.md + fleet-iac jobs/",
+      "relation": "pointer-replacement",
+      "source_sha256": "e2a4f3869ced45cdca1f1c828f14e7a61a5b5167cb60e554067d68d0108dacbf",
+      "notes": "Replaced by MOVED pointer; no executable authority remains in home_assist/fleet."
+    },
+    {
+      "path": "fleet/ansible.cfg",
+      "action": "migrate",
+      "canonical": "platform/ansible/ansible.cfg",
+      "relation": "exact-copy-or-transformed",
+      "source_sha256": "37c97cd659831291366bea6d98c74ab45de7f2934f7fc7f03638c3c73ca264cc",
+      "notes": "Sole ansible.cfg authority is fleet-iac platform/ansible/ansible.cfg."
+    },
+    {
+      "path": "fleet/archiso/.gitignore",
+      "action": "migrate",
+      "canonical": "platform/archiso/.gitignore",
+      "relation": "transformed-credential-free",
+      "source_sha256": "a888b9df89402a815bdb15d30c5280b090be11655ab4cc2299ce748d44cd6ed4",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/hostname",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/hostname",
+      "relation": "exact-copy",
+      "source_sha256": "a9168a4fabfff3fe22da8b9a3e1cae17f3f46d9f37779ff365a33c4d16f0b99b",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/locale.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/locale.conf",
+      "relation": "exact-copy",
+      "source_sha256": "89dd29db91ea608d72b5b4d3d3f5816cc2d3c1dd730741dc41b20ce12f1c2b3b",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/localtime",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/localtime",
+      "relation": "transformed-credential-free",
+      "source_sha256": "c53fc1bf542fbbb1244e33b6ce647c4c05e4cdf1d08542c7c898c852d3f2b223",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/mkinitcpio.conf.d/archiso.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/mkinitcpio.conf.d/archiso.conf",
+      "relation": "exact-copy",
+      "source_sha256": "cd1d328d0b343719c5975729bf7c8c5a227542beb396574ff4adeac30381db0b",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/mkinitcpio.d/linux.preset",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/mkinitcpio.d/linux.preset",
+      "relation": "exact-copy",
+      "source_sha256": "d839e18e7106ea77c377ffc91ece8ed538d48a9035f3527243ee9fb86c44e352",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/modprobe.d/broadcom-wl.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/modprobe.d/broadcom-wl.conf",
+      "relation": "exact-copy",
+      "source_sha256": "12821379472766c37e93bdf3caba774063d8d418912aeb76cee6746d646cf07f",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/motd",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/motd",
+      "relation": "exact-copy",
+      "source_sha256": "781fe968587572b30de5ac028d4648b43da5e298661bfd9fb23603cfd607d362",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/pacman.d/hooks/uncomment-mirrors.hook",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/pacman.d/hooks/uncomment-mirrors.hook",
+      "relation": "exact-copy",
+      "source_sha256": "4b5c728daf038b6c599d0a8e173e2e601044a8a631d0b7af6f5592863afed424",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/pacman.d/hooks/zzzz99-remove-custom-hooks-from-airootfs.hook",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/pacman.d/hooks/zzzz99-remove-custom-hooks-from-airootfs.hook",
+      "relation": "exact-copy",
+      "source_sha256": "b00ec7d9c5ee91df896130ddb121e53a7ead5726e6216d71477b9ea42b830504",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/passwd",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/passwd",
+      "relation": "exact-copy",
+      "source_sha256": "949fecf1090f8c5cccf8645cdfe3a803c0d15adec3d0869e0a44011af07f0756",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/resolv.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/resolv.conf",
+      "relation": "transformed-credential-free",
+      "source_sha256": "5e57f0085d92e413d5fae0df92987f33f962d7f4d0a602ac58c593bf396bf495",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/shadow",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/shadow",
+      "relation": "transformed-credential-free",
+      "source_sha256": "e3523a28a35d7dce33120e2870028cbfea58d4cfd031a792f837ac0b278f68db",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/ssh/sshd_config.d/10-archiso.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/ssh/sshd_config.d/10-archiso.conf",
+      "relation": "transformed-credential-free",
+      "source_sha256": "e21d83ccc2acb89e444802d61a2171833658b6eacb65e80ea4bbbad42a9760a6",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/ssh/sshd_config.d/fleet.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/ssh/sshd_config.d/fleet.conf",
+      "relation": "transformed-credential-free",
+      "source_sha256": "c6f304501dd051cc53700f7047111f474231dbb6070a1c049f629644753a7230",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/journald.conf.d/volatile-storage.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/journald.conf.d/volatile-storage.conf",
+      "relation": "exact-copy",
+      "source_sha256": "c0c9a711f7554fdd02650409b098fc0636b8f3f574f03d927c6df84f5ec82a7f",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/logind.conf.d/do-not-suspend.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/logind.conf.d/do-not-suspend.conf",
+      "relation": "exact-copy",
+      "source_sha256": "17ea3cafdfa2575a94d36e7328148bc5da28bb4833e16bc4a474f8dcdc2b73df",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/network/20-ethernet.network",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/network/20-ethernet.network",
+      "relation": "exact-copy",
+      "source_sha256": "4da01b7031f3528ba64c0b0f1461e3d70da06d8c475a752b711cbdb2eaf0c34e",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/network/20-wlan.network",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/network/20-wlan.network",
+      "relation": "exact-copy",
+      "source_sha256": "f345a066b7ab2ee4526a8b3354cc21ea114bdc877c112aa1fe35ffed02eea984",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/network/20-wwan.network",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/network/20-wwan.network",
+      "relation": "exact-copy",
+      "source_sha256": "860f7678e5f5daa20e7dbb8b947d63b086f190ce8895678576fd0922d53d8924",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/networkd.conf.d/ipv6-privacy-extensions.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/networkd.conf.d/ipv6-privacy-extensions.conf",
+      "relation": "exact-copy",
+      "source_sha256": "d88fd1c481579aa7d0ffc12ef39d77cc474c33bd465eda5515cd114025597dcd",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/resolved.conf.d/archiso.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/resolved.conf.d/archiso.conf",
+      "relation": "exact-copy",
+      "source_sha256": "5a9c2b59354e526e4c5390505c7037eecefd96b5753826ce265d6062a0554eb3",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system-generators/systemd-gpt-auto-generator",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system-generators/systemd-gpt-auto-generator",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "fd5d32feb2d3562582258990ecfca9b88376957e512d5caac72ad89fc78d2df4",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/choose-mirror.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/choose-mirror.service",
+      "relation": "exact-copy",
+      "source_sha256": "0ab103ad2490b903eda1ca4806b18a54f79ca608ad64dc8c208a4d9b4bec3e51",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/cloud-init.target.wants/cloud-config.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/cloud-init.target.wants/cloud-config.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "33b700795442b56441b41ab1830594c6aff4d9c8383b4abbce19b7c00e6fe242",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/cloud-init.target.wants/cloud-final.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/cloud-init.target.wants/cloud-final.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "ba7d8e149bfdcd3d1b6a1e35961f795d184e2377ab17e23b71ac9c10f985607f",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/cloud-init.target.wants/cloud-init-local.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/cloud-init.target.wants/cloud-init-local.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "1e263ee78fea3188e8b58bac8d4f5c961249c5864a90f4b59fafa3632f2a5e7a",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/cloud-init.target.wants/cloud-init-main.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/cloud-init.target.wants/cloud-init-main.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "e7ea8b957c9ee575ae3041022980aa8d0865cf5689268cfde67bb9dd902bc61a",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/cloud-init.target.wants/cloud-init-network.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/cloud-init.target.wants/cloud-init-network.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "0d99353d24c66957b98b50fb0e4f68c86bd85632b926d15b1fc9ee5ebd97cb96",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.ModemManager1.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.ModemManager1.service",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "211f1f6ee060e34cc2abbbc672f292a4ba0d0c3efb35f4ff5e3ec8824f2639fe",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.network1.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.network1.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "8db4a42155947fc5a7266fa3aeee41a814a830c1b71a23622b007af420a8d764",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.resolve1.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.resolve1.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "b936fdbaf50cfb77bf8f101eab35e29077ff734c669507b30a88bc32bc2dc95a",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.timesync1.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.timesync1.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "1655852f98cf0523477b09b97aa20e231d7ea1e31529998f2b01cb62d5d726e8",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/etc-pacman.d-gnupg.mount",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/etc-pacman.d-gnupg.mount",
+      "relation": "exact-copy",
+      "source_sha256": "c9df1f5568fb2a6cfb3e84966b2bb2d1994eb7c481ef535289bb94bde8223f2c",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/getty@tty1.service.d/autologin.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/getty@tty1.service.d/autologin.conf",
+      "relation": "exact-copy",
+      "source_sha256": "91c35046e7a9d5dc73e0decef359e110d952cb694aa458df8ab37ed55e2ba21d",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/livecd-alsa-unmuter.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/livecd-alsa-unmuter.service",
+      "relation": "exact-copy",
+      "source_sha256": "85baf1d733c5fb59a22f0f824812e3222e006417a3f834204a46226695423580",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/livecd-talk.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/livecd-talk.service",
+      "relation": "exact-copy",
+      "source_sha256": "be476bffaf29d7190c0c9b02ca4022fdb5828854131a92ad970f62b004547945",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/ModemManager.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/ModemManager.service",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "211f1f6ee060e34cc2abbbc672f292a4ba0d0c3efb35f4ff5e3ec8824f2639fe",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/choose-mirror.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/choose-mirror.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "6ac8c458ecf9aea1385b9392b1ad7f86f822f1c3759a68ddd7d215b5ff59d481",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_fcopy_daemon.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_fcopy_daemon.service",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "2969ded7cac01e473b4ee9a6f0167ef04ba53a5fcec8594a1082723e61523810",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_kvp_daemon.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_kvp_daemon.service",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "d0cf8affa60e0cf5153e65b801f9912f8e9acd00bf7e53f92d3abe6295af26f5",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_vss_daemon.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_vss_daemon.service",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "094731e1bbcdefec05fc6323cb666b22a7e27ffd95dd4e04970287b974f60201",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/iwd.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/iwd.service",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "43ba3a7f83bfd33def61dd5b8e4f32e191bce6a60eece7714a8355aae582d6d5",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/livecd-talk.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/livecd-talk.service",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "a03891b4310746ce9ea353b8321bd5284666a2fa40180e9a7c720861ba56d9b9",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/pacman-init.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/pacman-init.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "9454cc5b0bf3efb858dc99789e8ee69d6d40898596882058dcd7739e26071af2",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/sshd.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/sshd.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "1e597a3b45336a6e73f81663ee66ee2d8268b8f48686cdb849f9df0116b47dba",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/systemd-networkd.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/systemd-networkd.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "8db4a42155947fc5a7266fa3aeee41a814a830c1b71a23622b007af420a8d764",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/systemd-resolved.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/systemd-resolved.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "b936fdbaf50cfb77bf8f101eab35e29077ff734c669507b30a88bc32bc2dc95a",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vboxservice.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vboxservice.service",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "8bd51fdd81490a7b9e39c2f93d8b564604f1c52d23b8967df138cfc88223732f",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vmtoolsd.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vmtoolsd.service",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "a6df42e55ff0240ec1f1015c115e9500ed5614a8b14ad6c6ce6683d77fc87b31",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vmware-vmblock-fuse.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vmware-vmblock-fuse.service",
+      "relation": "excluded-or-restructured",
+      "source_sha256": "869229f4afeb297d752f268748c5bc1271a2b9009c2e9b5872725ab01650e7fa",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "6fc6dd1ac4333c6da6a8f14e8e3ce6ce3ed01e0af39e59be32566de40626d17a",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/pacman-init.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/pacman-init.service",
+      "relation": "exact-copy",
+      "source_sha256": "a5407465b6b533bf7608bede2fa0035223b9aa659afca4223d40bca952cd6fd4",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/sockets.target.wants/pcscd.socket",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/sockets.target.wants/pcscd.socket",
+      "relation": "transformed-credential-free",
+      "source_sha256": "ac5415fb913136e579c53502e1887880e097094590b23ddfb88c125b6abe70eb",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/sockets.target.wants/systemd-networkd.socket",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/sockets.target.wants/systemd-networkd.socket",
+      "relation": "transformed-credential-free",
+      "source_sha256": "1717e4498b14086ec8da31e5538563b08a85e3729692ce6ff3132e722cc4f428",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/sound.target.wants/livecd-alsa-unmuter.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/sound.target.wants/livecd-alsa-unmuter.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "36d50235f22caa9f20cc87fa1a5763b9e59facbf7dc76958f1d1e010184f5514",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/sysinit.target.wants/systemd-time-wait-sync.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/sysinit.target.wants/systemd-time-wait-sync.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "2f289255c6dbd714cf3454b8ca24c060094425d21a6b03c8a31d720948d413c9",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service",
+      "relation": "transformed-credential-free",
+      "source_sha256": "1655852f98cf0523477b09b97aa20e231d7ea1e31529998f2b01cb62d5d726e8",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/etc/systemd/system/systemd-networkd-wait-online.service.d/wait-for-only-one-interface.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/etc/systemd/system/systemd-networkd-wait-online.service.d/wait-for-only-one-interface.conf",
+      "relation": "exact-copy",
+      "source_sha256": "3832d89abb32080a190c5b902c64fa7cdf219eafa921523f4e478712742a7df6",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/root/.automated_script.sh",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/root/.automated_script.sh",
+      "relation": "exact-copy",
+      "source_sha256": "06bf206fce0ca63b789969f13e16ea8346c2af9dd39e6e0e00fbd6322ead82af",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/root/.gnupg/scdaemon.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/root/.gnupg/scdaemon.conf",
+      "relation": "exact-copy",
+      "source_sha256": "c89d4e5c4e81d50cc7d87ad9476d76a86cbba0d8345c25c0d76e27c00a46a0c4",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/root/.ssh/authorized_keys",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/root/.ssh/authorized_keys",
+      "relation": "exact-copy",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/root/.zlogin",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/root/.zlogin",
+      "relation": "exact-copy",
+      "source_sha256": "d22d3216fff1f02d40cbd613ca647ad56a878cd7b3bfa36d72a635b2541d862e",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/usr/local/bin/Installation_guide",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/usr/local/bin/Installation_guide",
+      "relation": "exact-copy",
+      "source_sha256": "32e73de7252d4d5e3d9871dba769ba55017cd2bcdcd4859cc836b718e4d10d94",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/usr/local/bin/choose-mirror",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/usr/local/bin/choose-mirror",
+      "relation": "exact-copy",
+      "source_sha256": "14c36f0a6639ae71179a5e8358bec70a1d4a4cb6083c500e0afb17bdf1fce50c",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/usr/local/bin/livecd-sound",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/usr/local/bin/livecd-sound",
+      "relation": "exact-copy",
+      "source_sha256": "19804f5fe38d94a5c54bc2774ce4228401e8b9a54b5411138ab4719214960b11",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/airootfs/usr/local/share/livecd-sound/asound.conf.in",
+      "action": "migrate",
+      "canonical": "platform/archiso/airootfs/usr/local/share/livecd-sound/asound.conf.in",
+      "relation": "exact-copy",
+      "source_sha256": "0d04d794d27ea613299fb601867681580a7935dc5c78267f892136efb9804948",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/bootstrap_packages",
+      "action": "migrate",
+      "canonical": "platform/archiso/bootstrap_packages",
+      "relation": "exact-copy",
+      "source_sha256": "9e602440a68d69d11908d5f953d96ba3a8e4eb2ec36a47c87d977a70d1bce140",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/build.sh",
+      "action": "migrate",
+      "canonical": "platform/archiso/build.sh",
+      "relation": "transformed-credential-free",
+      "source_sha256": "dbf0a3295c3372f6236f746e9153afd64ba9e843e2fb5bf58b3e6f69f0564745",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/efiboot/loader/entries/01-archiso-linux.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/efiboot/loader/entries/01-archiso-linux.conf",
+      "relation": "exact-copy",
+      "source_sha256": "20c9b179357095ca930a098864a6726b49e7db8d112eb1f15075d92bebc07d48",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/efiboot/loader/entries/02-archiso-speech-linux.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/efiboot/loader/entries/02-archiso-speech-linux.conf",
+      "relation": "exact-copy",
+      "source_sha256": "33e0cf2a19401f42e2fc93923c7b5fe3623a0271ba2233e14100061d64192448",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/efiboot/loader/entries/03-archiso-memtest86+x64.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/efiboot/loader/entries/03-archiso-memtest86+x64.conf",
+      "relation": "exact-copy",
+      "source_sha256": "83fe499758a0b93e381977566a436d58b1bd8d430ecbfe829fa880a80b2804eb",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/efiboot/loader/loader.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/efiboot/loader/loader.conf",
+      "relation": "exact-copy",
+      "source_sha256": "3a445295e0f99c97fdde0e0cd1300260a4af380e7d1c7e5ea93ae0c96d2b03b1",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/grub/grub.cfg",
+      "action": "migrate",
+      "canonical": "platform/archiso/grub/grub.cfg",
+      "relation": "exact-copy",
+      "source_sha256": "6aae08ff009e58b72c7025f469bd66043949d9692355ef5d0daf23df1805a97d",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/grub/loopback.cfg",
+      "action": "migrate",
+      "canonical": "platform/archiso/grub/loopback.cfg",
+      "relation": "exact-copy",
+      "source_sha256": "9e9e4447f09017a192a041433dc8f5b4ffe27f382c9d72f164c603a0c2d20efa",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/packages.x86_64",
+      "action": "migrate",
+      "canonical": "platform/archiso/packages.x86_64",
+      "relation": "exact-copy",
+      "source_sha256": "284fd7fdb070f18d934fafad5e0bd3154f0f25677238c364ef35e358dd9c916f",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/pacman.conf",
+      "action": "migrate",
+      "canonical": "platform/archiso/pacman.conf",
+      "relation": "exact-copy",
+      "source_sha256": "a250b3998460e0f2c39e8cc458382171b372b57ace91f36d2eae50d124c0c7fc",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/profiledef.sh",
+      "action": "migrate",
+      "canonical": "platform/archiso/profiledef.sh",
+      "relation": "transformed-credential-free",
+      "source_sha256": "bb1374ac68743fd2fa7089506f028b59e76b530c1273d4d1446c920b1e59fe67",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/syslinux/archiso_head.cfg",
+      "action": "migrate",
+      "canonical": "platform/archiso/syslinux/archiso_head.cfg",
+      "relation": "exact-copy",
+      "source_sha256": "b003aaec419729716a773c161e70dff22231f1a00ff495ac1119bcfb742c22c6",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/syslinux/archiso_pxe-linux.cfg",
+      "action": "migrate",
+      "canonical": "platform/archiso/syslinux/archiso_pxe-linux.cfg",
+      "relation": "exact-copy",
+      "source_sha256": "d01967b21afecd2accb6fad770b660bfe2b13d835baa61dd1e9152b1afc8e6c7",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/syslinux/archiso_pxe.cfg",
+      "action": "migrate",
+      "canonical": "platform/archiso/syslinux/archiso_pxe.cfg",
+      "relation": "exact-copy",
+      "source_sha256": "62feb6fcf309bd126df912cbeec80391da6cc92e45946c8f74b8c53f668dbe2c",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/syslinux/archiso_sys-linux.cfg",
+      "action": "migrate",
+      "canonical": "platform/archiso/syslinux/archiso_sys-linux.cfg",
+      "relation": "exact-copy",
+      "source_sha256": "18eb05bb7119035ce410e087cca6f43f4d507ba9327896dc8cb4c0da3d000d14",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/syslinux/archiso_sys.cfg",
+      "action": "migrate",
+      "canonical": "platform/archiso/syslinux/archiso_sys.cfg",
+      "relation": "exact-copy",
+      "source_sha256": "83157f584f9e0bf9f467499677798c36ca24e35f5bdef2f104a9d4cc0f89f75a",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/syslinux/archiso_tail.cfg",
+      "action": "migrate",
+      "canonical": "platform/archiso/syslinux/archiso_tail.cfg",
+      "relation": "exact-copy",
+      "source_sha256": "dc55a881c29021dd7883da8bd09eca5c505d2589c22d4b58f9f728f8bb4e772d",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/syslinux/splash.png",
+      "action": "migrate",
+      "canonical": "platform/archiso/syslinux/splash.png",
+      "relation": "exact-copy",
+      "source_sha256": "efedc11aeaaf6743dccd68df40f5f7cb71fe0efea9a4f24b8ce8b6e3ca73f686",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/archiso/syslinux/syslinux.cfg",
+      "action": "migrate",
+      "canonical": "platform/archiso/syslinux/syslinux.cfg",
+      "relation": "exact-copy",
+      "source_sha256": "51d33be8381fdd5770868934679f6307e8ce70d24d6d06befda2cec6c9292e65",
+      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+    },
+    {
+      "path": "fleet/group_vars/all.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/group_vars/all.yml",
+      "relation": "transformed",
+      "source_sha256": "33e235e51189edd885060cd69259c80a770603fbff74aa24502438cb91e437f1",
+      "notes": "Group vars authority in fleet-iac; secrets/SSH lookups stripped at import."
+    },
+    {
+      "path": "fleet/group_vars/compute.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/group_vars/compute.yml",
+      "relation": "transformed",
+      "source_sha256": "7ea95214645a5b76e35826908fb082dcad783d63f723cdd398c6ab4254741fb5",
+      "notes": "Group vars authority in fleet-iac; secrets/SSH lookups stripped at import."
+    },
+    {
+      "path": "fleet/group_vars/storage.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/group_vars/storage.yml",
+      "relation": "transformed",
+      "source_sha256": "017b4ce24c55a178a2cee8280b003575572151c84eef760c183df255fe8c9b63",
+      "notes": "Group vars authority in fleet-iac; secrets/SSH lookups stripped at import."
+    },
+    {
+      "path": "fleet/host_vars/example-node.yml",
+      "action": "retire",
+      "canonical": null,
+      "relation": "template-only-retired",
+      "source_sha256": "be6fb54992d0e34a7f590f8c73a4db3f7d6c883697cf0bd8c0d76bac84963d29",
+      "notes": "Example template; not part of six-node canonical inventory."
+    },
+    {
+      "path": "fleet/host_vars/node-1.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/host_vars/node-1.yml",
+      "relation": "transformed",
+      "source_sha256": "2a3ff830c90718bb7482a59ea4e953e0a02d36f5a90d50b1938be396ce77f7cf",
+      "notes": "Host vars authority in fleet-iac (normalized lan/bond schema)."
+    },
+    {
+      "path": "fleet/host_vars/node-2.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/host_vars/node-2.yml",
+      "relation": "transformed",
+      "source_sha256": "30a559e50e9f1248453c7d8520725fc7f98340dfed0ddfe1bfdf59141ea67ae8",
+      "notes": "Host vars authority in fleet-iac (normalized lan/bond schema)."
+    },
+    {
+      "path": "fleet/host_vars/node-3.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/host_vars/node-3.yml",
+      "relation": "transformed",
+      "source_sha256": "4199e03763cdb5a2b05d5a200bcf836248a07f9fd08906cffa5c061a99148bc8",
+      "notes": "Host vars authority in fleet-iac (normalized lan/bond schema)."
+    },
+    {
+      "path": "fleet/host_vars/node-4.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/host_vars/node-4.yml",
+      "relation": "transformed",
+      "source_sha256": "e8a7439a2c8ec5681467a6b3ce0748e323acef1e794ffd8c7ae2313e3512deaa",
+      "notes": "Host vars authority in fleet-iac (normalized lan/bond schema)."
+    },
+    {
+      "path": "fleet/host_vars/node-5.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/host_vars/node-5.yml",
+      "relation": "transformed",
+      "source_sha256": "4b6337b67802c73239ce703f24c40b3b404c2196a4ae9b3ffb3acb0caec5abb7",
+      "notes": "Host vars authority in fleet-iac (normalized lan/bond schema)."
+    },
+    {
+      "path": "fleet/host_vars/node-6.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/host_vars/node-6.yml",
+      "relation": "transformed",
+      "source_sha256": "942f314427344f970bf21f1f689f221ddac89b1a5f330029a2f1decac2aba3eb",
+      "notes": "Host vars authority in fleet-iac (normalized lan/bond schema)."
+    },
+    {
+      "path": "fleet/inventory/group_vars",
+      "action": "migrate",
+      "canonical": "platform/ansible/inventory/group_vars -> ../group_vars",
+      "relation": "symlink-layout-in-canonical",
+      "source_sha256": "e9e0ef55804ca5e2e2c548944d52f4a8790d1d85f9264423ae3d23a9d705e3bc",
+      "notes": "Inventory group/host vars layout owned by fleet-iac (real dirs + inventory symlinks)."
+    },
+    {
+      "path": "fleet/inventory/host_vars",
+      "action": "migrate",
+      "canonical": "platform/ansible/inventory/host_vars -> ../host_vars",
+      "relation": "symlink-layout-in-canonical",
+      "source_sha256": "0947ba5f81e03401423b3fdb6aac0e220beb0ac38de1a1f2d223bb8c2d1c2b74",
+      "notes": "Inventory group/host vars layout owned by fleet-iac (real dirs + inventory symlinks)."
+    },
+    {
+      "path": "fleet/inventory/hosts.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/inventory/hosts.yml",
+      "relation": "transformed",
+      "source_sha256": "c578c6cd2a018cb9aa4f00608f17d1f8909043280c215008d33d67ec3b397e65",
+      "notes": "Inventory authority migrated to fleet-iac (Task 1/2)."
+    },
+    {
+      "path": "fleet/monitoring/fleet-health-monitor.py",
+      "action": "migrate",
+      "canonical": "platform/scripts/monitoring/fleet-health-monitor.py",
+      "relation": "transformed-credential-free",
+      "source_sha256": "bae6bc75776ee25f958aa6d9bb8d9805565489fc5ed97c5d0d627e0036dfa10a",
+      "notes": "Canonical monitoring scripts are fleet-iac platform/scripts/monitoring (credential-free transforms). HA copies are non-authoritative ancestors and must not remain deployable."
+    },
+    {
+      "path": "fleet/monitoring/moosefs-poller.py",
+      "action": "migrate",
+      "canonical": "platform/scripts/monitoring/moosefs-poller.py",
+      "relation": "transformed-credential-free",
+      "source_sha256": "4c7923d0d38097f0ebe1244b3158e8ff7016cc4edfe14901d27db92482acfec8",
+      "notes": "Canonical monitoring scripts are fleet-iac platform/scripts/monitoring (credential-free transforms). HA copies are non-authoritative ancestors and must not remain deployable."
+    },
+    {
+      "path": "fleet/nomad/home-automation/homeassistant.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/home/homeassistant.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "eb4a03e654fd5b75dc09a0d460fb6b28a1c37508f5a6de748b9b958d67463507",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/home-automation/matter-server.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/home/matter-server.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "3eb55a5d142b412a1b7085a9aad00fb7191fa0673c7d566ca4e8f276a62fbb08",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/clickhouse.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/observability/clickhouse.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "3b42ad1db862855586ab46742e625c717d6f1a0e7e36c50b3230201170f1c41b",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/cloudflared.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/network/cloudflared.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "9e3124b2d30b412bf86b50656277126ece6e05abbcba6b34b60981e61762c972",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/coredns.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/network/coredns.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "512c95d49a8b2050e658f455eafedd106f0dbc33cf4c4bc74fda510eaffec1e5",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/ddclient.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/network/ddclient.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "a99200a88368fb243e2c700597e32dc86c471975eaa8b530d81f093a6abd9dd4",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/fleet-health-monitor.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/observability/fleet-health-monitor.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "f78b8906f75d5d7755e7750c9733a8f4a74a0576f964187b67033fa3d3c22453",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/gpu-metrics.nomad.hcl",
+      "action": "retire",
+      "canonical": null,
+      "relation": "non-target-dropped",
+      "source_sha256": "781e32b6b2cd4259ba9ecb4455f70c29418d9d6316c5ee49f5482fbc363c3b2e",
+      "notes": "gpu-metrics is non-target (host-managed exporters); fenced in fleet-iac retired-path fences."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/idrive.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/backup/idrive.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "c54b1e6091992ec360bdd98990a32f1d28fd7d4016933916a1b05a0cf9c6d227",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/moosefs-poller.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/observability/moosefs-poller.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "4318a4d4f258f528b284d1d5ea34f1c1b9ff963adeca2ce35f35707c4daf7575",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/mosquitto.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/home/mosquitto.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "cf56be622ff48b1654996dcc13bdfe42dc04a59b2dc9fbcd08dccc4bd6bf9a86",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/omada.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/home/omada.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "9d242cac595a525795f6e1e1529580afbe57e6e5c570880db8fabbef4c26b53e",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/otel-agent.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/observability/otel-agent.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "65c76917191219f21c0abf17a8b3c33818d9af4c11bec4550cfedccf23370aaa",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/signoz.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/observability/signoz.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "490db6c09a12fbbdce96d3ee44184935d1f10e9457e604e3925258160e50149e",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/syncthing.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/sync/syncthing.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "7d260378e1795f279f1afaf13098b9be27ec3079f140d1dd4c776dd7ad89d060",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/infrastructure/traefik.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/platform/network/traefik.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "ab3a0b7790b6873da6745920f5ed609a6fd2711ebea03a385f89853185cd943c",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/airsonic.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/airsonic.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "d7317b6ec2492dc0eb95cff4556e86c688bedf5600086b223e7796c6eb257b68",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/bazarr.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/bazarr.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "e89f03b8734cfa708ab08d8867cf092ea2f40c094324f377ba5631318dfd9cc4",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/flaresolverr.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/flaresolverr.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "343930dbf7b4b36cefb21f61b361a0a5491efbe1ac588eb7a40e96ea61a04fdc",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/goshelf.nomad.hcl",
+      "action": "retire",
+      "canonical": "aleksclark/goshelf:deploy/nomad/jobs/goshelf.nomad.hcl",
+      "relation": "project-owned",
+      "source_sha256": "5acf58658d36d01839c8b08c9a3bc0cff12e7dd98df311f9cd625360c960177c",
+      "notes": "goshelf is project-owned; not fleet-iac jobs/ and must not remain as home_assist fleet authority."
+    },
+    {
+      "path": "fleet/nomad/media/jackett.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/jackett.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "cd6f8a082dfa5538c4b865dabe6418f74537e1eed0f954317a94cfed4bae9cf0",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/jellyfin.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/jellyfin.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "b201840a982c17605f518040b6d172845e504ff82b26643b352c7e0b8f943ea2",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/lidarr.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/lidarr.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "9d91b2dad68d5f9553d578d566728599ccce0177d20557c416632e29a2a89b91",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/photoprism.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/photoprism.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "8afaf91fe4dda6ccf6a0219112ea782448ddc559d7b45fe7feec808dcb96a6a4",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/prowlarr.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/prowlarr.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "8447fe820a47a545840d9158808dee29b455db400b5440a982cdb30d8f070f2c",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/qbittorrent.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/qbittorrent.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "3d4318be070643b559842a5108c8938e7c6b036dd4cb5dd7eac5ab542f24a21c",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/radarr.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/radarr.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "69cf706a400a55ef455c8298095379e4b89c9c23ad42d7ccdad6727cb39a4d7d",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/readarr.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/readarr.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "799baafc28f276323b434268587de03f4350a2896590cd5e2d65bdc7f4c2d9f8",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/sonarr.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/sonarr.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "4bf41973e31fdeec363bcf7d40deb1d0a2ceb30d5b41318c87ef838b8ce7f8c3",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/nomad/media/speakarr.nomad.hcl",
+      "action": "migrate",
+      "canonical": "jobs/media/speakarr.nomad.hcl",
+      "relation": "transformed",
+      "source_sha256": "f20081737f45286766dc994ac39befae5799141d498a5d3ce09fb0c32f2ed3bf",
+      "notes": "Fleet-owned Nomad jobspec authority is aleksclark/fleet-iac jobs/."
+    },
+    {
+      "path": "fleet/playbooks/blockyard-restart.yml",
+      "action": "retire",
+      "canonical": null,
+      "relation": "retired-no-deploy-path",
+      "source_sha256": "95932c9c5fb7bc4531cbe343394987848eb6d5623fb8b447bd581fe52930c70d",
+      "notes": "Blockyard deploy/restart/wipe playbooks must not remain; decommission lives in fleet-iac standalone playbooks only."
+    },
+    {
+      "path": "fleet/playbooks/blockyard-wipe-raft.yml",
+      "action": "retire",
+      "canonical": null,
+      "relation": "retired-no-deploy-path",
+      "source_sha256": "e712146dc5daa07e64f4a5a24d72b61c27d92bf8b83f467bf7c57661126e06b9",
+      "notes": "Blockyard deploy/restart/wipe playbooks must not remain; decommission lives in fleet-iac standalone playbooks only."
+    },
+    {
+      "path": "fleet/playbooks/deploy-blockyard.yml",
+      "action": "retire",
+      "canonical": null,
+      "relation": "retired-no-deploy-path",
+      "source_sha256": "775fe569f2321e94b85daed1310db31bc4e18ce9b2341b46e2ef6f88c5ed5f8e",
+      "notes": "Blockyard deploy/restart/wipe playbooks must not remain; decommission lives in fleet-iac standalone playbooks only."
+    },
+    {
+      "path": "fleet/playbooks/site.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/playbooks/site.yml",
+      "relation": "transformed",
+      "source_sha256": "122e9f8eb28ef3ff44bbe04a8642c4c9d32cd0691cfe655757c9561c4636d4a3",
+      "notes": "Playbook authority in fleet-iac platform/ansible/playbooks."
+    },
+    {
+      "path": "fleet/playbooks/upgrade.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/playbooks/upgrade.yml",
+      "relation": "transformed",
+      "source_sha256": "eb26fd1259aa9224c6799e697c47f3ef34116fdf3a33adc3f7eab7e770a02f43",
+      "notes": "Playbook authority in fleet-iac platform/ansible/playbooks."
+    },
+    {
+      "path": "fleet/roles/base/defaults/main.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/defaults/main.yml",
+      "relation": "transformed",
+      "source_sha256": "2ae52c8d141a0a0a9bd4b9c1fdffcb27989b21843b84348e09827739edab43fb",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/handlers/main.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/handlers/main.yml",
+      "relation": "exact-copy",
+      "source_sha256": "671d5e211bc4f649ee89d2aeda085ef295ceab0ec140e4e6ec3a4945c6216a31",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/tasks/main.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/tasks/main.yml",
+      "relation": "exact-copy",
+      "source_sha256": "d71a736dea32a49c1c044de25427932ff488faeeca01f90b05e21bf1aa76737f",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/tasks/pacman.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/tasks/pacman.yml",
+      "relation": "exact-copy",
+      "source_sha256": "cf9d756c5a42eb48bddc835ebf3d937f7576dd397cc7930320b63e674b089d25",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/tasks/snapper.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/tasks/snapper.yml",
+      "relation": "exact-copy",
+      "source_sha256": "c3d522efa642cdc4efab69b0565a3a340c2f0b944d99147b2e10b8f4d4ba8bad",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/tasks/ssh.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/tasks/ssh.yml",
+      "relation": "exact-copy",
+      "source_sha256": "e0e97307b77ccda0a3c7aab50c862d0f02ce013e8afe0bcf5f53a7c144c8f248",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/tasks/sysctl.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/tasks/sysctl.yml",
+      "relation": "exact-copy",
+      "source_sha256": "4179b129013d34f5ed33c418a235b58015bba6ff51de7d486be3e9bb3a5fb2af",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/tasks/users.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/tasks/users.yml",
+      "relation": "transformed",
+      "source_sha256": "126a6a82b22306b7d161ce927db782ddb46d8a495cd6cecf1fa0ad26bf5804a0",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/templates/mirrorlist.j2",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/templates/mirrorlist.j2",
+      "relation": "exact-copy",
+      "source_sha256": "f906497ffa12e1480e14e51a583054960f803e0430a46ae79fce40ed47afb546",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/templates/pacman.conf.j2",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/templates/pacman.conf.j2",
+      "relation": "exact-copy",
+      "source_sha256": "01700c155bd8e00e4c98be5b862e274c42b724436a337b7187377d6ede7b5511",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/templates/snapper_root.j2",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/templates/snapper_root.j2",
+      "relation": "transformed",
+      "source_sha256": "18a6115ec20fff0f0c102855e72958db8adcd9a5aa754cb3af24030eff919577",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/base/templates/sshd_config.j2",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/base/templates/sshd_config.j2",
+      "relation": "exact-copy",
+      "source_sha256": "f821220c2598eb169ec224c8a2defc8011fa9a607be0522e954d8a6f7896069e",
+      "notes": "Role base owned by fleet-iac platform/ansible/roles/base."
+    },
+    {
+      "path": "fleet/roles/blockyard/defaults/main.yml",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "238b4630d2e020c9b3c9810a3a8cc0a4a11d1cd5d4f35f4e5151d608880c10cf",
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/blockyard/handlers/main.yml",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "b1abe3393aa3891f54ad5d9a0d41cf53afb381c3e266fd2ef30c4c49bdddacda",
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/blockyard/tasks/disks.yml",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "1ad2a62abac355332ebd8f2d8179d6f9c2e90f1dbcf98c72a6caec74c860bda9",
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/blockyard/tasks/main.yml",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "c5c74e619a0fbb30257527a44ef9748fe76467d5ff7caf65c96d879cd70ba3ee",
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/blockyard/templates/blockyard-consul.json.j2",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "1597aa46975646aea5f3044e3aa1c92e62ed8370af6951558e574465a9c35ee6",
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/blockyard/templates/blockyard.service.j2",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "bf907f49b394cce8501684029eb4ed560300a199bcb0c3af92dd783e2914820b",
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/blockyard/templates/blockyard.toml.j2",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "7eb182bc1e258d7de130d57855aab2e7ad35ab549d17df05c8fedf4a74a1f8a5",
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/consul/defaults/main.yml",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/consul-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "a9da4509bbea37478cd1118c3dd3ea4fcc594f59233b9a9fa2a42540a11a7f25",
+      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/consul/handlers/main.yml",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/consul-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "25addd011f1e1a915b3cca1992de851000ad6ad9724d20f04ddf8f5b9311056c",
+      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/consul/tasks/main.yml",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/consul-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "0300012f8008bff14fcccc138426e9b031e3d78e5311d677d86ab747baf22eb0",
+      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/consul/templates/consul.hcl.j2",
+      "action": "retire",
+      "canonical": "platform/ansible/roles/consul-cleanup",
+      "relation": "cleanup-only-replacement",
+      "source_sha256": "6eb2ae700ebda47da7bbfa3f0094ac5594378a5080057acdd36cfd925ab6faac",
+      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+    },
+    {
+      "path": "fleet/roles/docker/defaults/main.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/docker/defaults/main.yml",
+      "relation": "exact-copy",
+      "source_sha256": "e6e1d2357d9a77cecf94e639057870d68c7d81825ab9afd0c60e7c043fcc47e8",
+      "notes": "Role docker owned by fleet-iac platform/ansible/roles/docker."
+    },
+    {
+      "path": "fleet/roles/docker/handlers/main.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/docker/handlers/main.yml",
+      "relation": "exact-copy",
+      "source_sha256": "744b89bf2d1b5517f8a51a4d82cbf686e9099033642ae0cdbfc8e0f5d5a79c2a",
+      "notes": "Role docker owned by fleet-iac platform/ansible/roles/docker."
+    },
+    {
+      "path": "fleet/roles/docker/tasks/main.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/docker/tasks/main.yml",
+      "relation": "exact-copy",
+      "source_sha256": "ab167f5cadef889c2212a4ab3baa17fb3c7e904a2e208e065f240b659e8c2600",
+      "notes": "Role docker owned by fleet-iac platform/ansible/roles/docker."
+    },
+    {
+      "path": "fleet/roles/docker/templates/daemon.json.j2",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/docker/templates/daemon.json.j2",
+      "relation": "transformed",
+      "source_sha256": "ff37c060a440af5072feef3562aea25bc1206274858c08a96b3082360f182371",
+      "notes": "Role docker owned by fleet-iac platform/ansible/roles/docker."
+    },
+    {
+      "path": "fleet/roles/nomad/defaults/main.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/nomad/defaults/main.yml",
+      "relation": "transformed",
+      "source_sha256": "b9bd7a87d483e9faf72e94f8549cd84df99c302c75d87066dcf2f9dedfdc27c9",
+      "notes": "Role nomad owned by fleet-iac platform/ansible/roles/nomad."
+    },
+    {
+      "path": "fleet/roles/nomad/handlers/main.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/nomad/handlers/main.yml",
+      "relation": "exact-copy",
+      "source_sha256": "d4deee780a5ed878d7654bd872186a9a4cfe7f9c101caf2cbd0db4b18c51b67d",
+      "notes": "Role nomad owned by fleet-iac platform/ansible/roles/nomad."
+    },
+    {
+      "path": "fleet/roles/nomad/tasks/main.yml",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/nomad/tasks/main.yml",
+      "relation": "transformed",
+      "source_sha256": "4b537a878ade4e6c5e7d22a8515f2aabb187097edce8c0fa953711391646a376",
+      "notes": "Role nomad owned by fleet-iac platform/ansible/roles/nomad."
+    },
+    {
+      "path": "fleet/roles/nomad/templates/nomad.hcl.j2",
+      "action": "migrate",
+      "canonical": "platform/ansible/roles/nomad/templates/nomad.hcl.j2",
+      "relation": "transformed",
+      "source_sha256": "cd21d1dfc4f20a956c8868bac1e0eab5fc6e33aae4592233e0a17f8ca9ec1e16",
+      "notes": "Role nomad owned by fleet-iac platform/ansible/roles/nomad."
+    }
+  ]
+}
