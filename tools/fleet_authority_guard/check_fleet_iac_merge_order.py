@@ -7,14 +7,15 @@ fleet-iac commit is an ancestor of fleet-iac mainline (origin/master).
 Fleet-first contract:
 - home_assist is public; aleksclark/fleet-iac is private.
 - Hosted CI must materialize fleet-iac at path fleet-iac-canonical via a
-  dedicated read credential (FLEET_IAC_READ_TOKEN) — never assume
-  GITHUB_TOKEN or a repository variable path can see the private repo.
+  dedicated read-only SSH deploy key secret (FLEET_IAC_READ_SSH_KEY) —
+  never assume GITHUB_TOKEN, a PAT/token checkout, or a repository variable
+  path can see the private repo.
 - Callers pass --fleet-iac explicitly (recommended). FLEET_IAC_REPO remains
   a local/dev override only.
 - Default mode is fail-closed. Soft/report-only exists for local diagnostics
   only; CI must not use it for PR or master merge gates.
 
-Do not retarget the canonical pin until the fleet-iac PR merges.
+Canonical pin tracks the fleet-iac master merge SHA (not a floating PR head).
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ import sys
 from pathlib import Path
 
 TOOL_NAME = "check_fleet_iac_merge_order"
-TOOL_VERSION = "1.1.0"
+TOOL_VERSION = "1.2.0"
 
 DEFAULT_MANIFEST = Path("fleet/MIGRATION_MANIFEST.json")
 DEFAULT_MAINLINE = "origin/master"
@@ -91,7 +92,7 @@ def check(
             f"fleet-iac repo not found at {fleet_iac}; "
             f"cannot verify canonical {canonical[:7]} is on mainline {mainline}. "
             f"Hosted CI must checkout aleksclark/fleet-iac to fleet-iac-canonical "
-            f"using secrets.FLEET_IAC_READ_TOKEN (fail-closed)."
+            f"using secrets.FLEET_IAC_READ_SSH_KEY (read-only deploy key; fail-closed)."
         )
         # Fail closed for merge-ready checks when repo missing.
         return (0 if soft else 1, msgs)
@@ -121,8 +122,8 @@ def check(
         msgs.append(
             f"MERGE-ORDER GATE: canonical fleet-iac commit {canonical} is NOT an "
             f"ancestor of mainline {mainline} ({mainline_sha[:12]}). "
-            f"Home Assistant Task 9 is NOT merge-ready until the fleet-iac PR "
-            f"lands on mainline. status={status!r} blocked={blocked}."
+            f"Home Assistant Task 9 is NOT merge-ready until the canonical commit "
+            f"is on fleet-iac mainline. status={status!r} blocked={blocked}."
         )
         return (0 if soft else 1, msgs)
 

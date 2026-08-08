@@ -30,7 +30,8 @@ MERGE_ORDER_SCRIPT = (
 
 # Expected provenance pins (stable across post-merge HEAD movement).
 EXPECTED_SOURCE_COMMIT = "8d23d803377d9b0434b4543825be5ae57a65253b"
-EXPECTED_CANONICAL_COMMIT = "234115bfb1afbf01838656bb48dc27c2a008acd8"
+# fleet-iac master merge of PR #124 (canonical pin; not floating HEAD).
+EXPECTED_CANONICAL_COMMIT = "47c45e83b03ed9022d8561fac07a76d356309665"
 
 ALLOWED_ACTIONS = frozenset({"migrate", "retire", "retain-non-authoritative"})
 
@@ -148,7 +149,8 @@ class TestMigrationManifestExhaustive(unittest.TestCase):
         seq = data.get("merge_sequencing") or data.get("release_prerequisites")
         self.assertIsInstance(seq, dict, "manifest must declare merge_sequencing")
         self.assertEqual(seq.get("canonical_commit"), EXPECTED_CANONICAL_COMMIT)
-        self.assertIn(seq.get("canonical_mainline_status"), {"pending", "merged"})
+        # Post fleet-iac PR #124 merge: pin is on master; gate still hard-checks ancestry.
+        self.assertEqual(seq.get("canonical_mainline_status"), "merged")
         self.assertTrue(seq.get("home_assist_merge_blocked_until_canonical_on_mainline"))
         # value-free: no secret-shaped assignment values in JSON text
         raw = MANIFEST_PATH.read_text(encoding="utf-8")
@@ -435,12 +437,13 @@ class TestWorkflowPresent(unittest.TestCase):
             ),
         )
 
-    def test_workflow_materializes_private_fleet_iac_with_read_token(self):
+    def test_workflow_materializes_private_fleet_iac_with_read_only_ssh_deploy_key(self):
         """Hosted runners cannot read private fleet-iac via GITHUB_TOKEN.
 
         Require a second SHA-pinned checkout of aleksclark/fleet-iac into
-        fleet-iac-canonical using secrets.FLEET_IAC_READ_TOKEN, fetch-depth 0,
-        with explicit preflight failure when the secret is missing.
+        fleet-iac-canonical using secrets.FLEET_IAC_READ_SSH_KEY (read-only
+        deploy key via ssh-key), fetch-depth 0, with explicit preflight failure
+        when the secret is missing/empty. No PAT/token checkout contract.
         """
         wf = REPO_ROOT / ".github" / "workflows" / "ci-fleet-authority-guard.yml"
         text = wf.read_text(encoding="utf-8")
@@ -459,7 +462,13 @@ class TestWorkflowPresent(unittest.TestCase):
         )
         self.assertIn("aleksclark/fleet-iac", text)
         self.assertIn("fleet-iac-canonical", text)
-        self.assertIn("secrets.FLEET_IAC_READ_TOKEN", text)
+        self.assertIn("secrets.FLEET_IAC_READ_SSH_KEY", text)
+        # Least-privilege: read-only SSH deploy key only — no PAT/token contract.
+        self.assertNotIn("FLEET_IAC_READ_TOKEN", text)
+        self.assertNotRegex(
+            text,
+            re.compile(r"token:\s*\$\{\{\s*secrets\."),
+        )
         self.assertRegex(
             text,
             re.compile(
@@ -490,7 +499,7 @@ class TestWorkflowPresent(unittest.TestCase):
         self.assertRegex(
             fi_block,
             re.compile(
-                r"token:\s*\$\{\{\s*secrets\.FLEET_IAC_READ_TOKEN\s*\}\}"
+                r"ssh-key:\s*\$\{\{\s*secrets\.FLEET_IAC_READ_SSH_KEY\s*\}\}"
             ),
         )
         self.assertRegex(
@@ -499,7 +508,7 @@ class TestWorkflowPresent(unittest.TestCase):
         )
         # Fail-closed preflight when the read credential is unavailable.
         self.assertTrue(
-            "FLEET_IAC_READ_TOKEN" in text
+            "FLEET_IAC_READ_SSH_KEY" in text
             and (
                 "missing" in text.lower()
                 or "required" in text.lower()
@@ -507,20 +516,20 @@ class TestWorkflowPresent(unittest.TestCase):
                 or "not set" in text.lower()
                 or "empty" in text.lower()
             ),
-            "workflow must preflight-fail clearly when FLEET_IAC_READ_TOKEN is unavailable",
+            "workflow must preflight-fail clearly when FLEET_IAC_READ_SSH_KEY is unavailable",
         )
-        # Never echo/print the token value (name in error text is OK).
+        # Never echo/print the key material (name in error text is OK).
         self.assertNotRegex(
             text,
             re.compile(
-                r"(echo|printf|cat)\s+[\"']?\$\{?FLEET_IAC_READ_TOKEN",
+                r"(echo|printf|cat)\s+[\"']?\$\{?FLEET_IAC_READ_SSH_KEY",
                 re.I,
             ),
         )
         self.assertNotRegex(
             text,
             re.compile(
-                r"(echo|printf)\s+.*\$\{\{\s*secrets\.FLEET_IAC_READ_TOKEN",
+                r"(echo|printf)\s+.*\$\{\{\s*secrets\.FLEET_IAC_READ_SSH_KEY",
                 re.I,
             ),
         )
@@ -529,9 +538,10 @@ class TestWorkflowPresent(unittest.TestCase):
         self.assertNotRegex(text, r"FLEET_IAC_REPO:\s*\$\{\{\s*vars\.")
 
 
-
 FLEET_IAC_PATHS_FIXTURE = (
-    Path(__file__).resolve().parent / "fixtures" / "fleet_iac_234115b_paths.txt"
+    Path(__file__).resolve().parent
+    / "fixtures"
+    / f"fleet_iac_{EXPECTED_CANONICAL_COMMIT[:7]}_paths.txt"
 )
 
 # Stock archiso enablement symlinks intentionally retired (no unique fleet-iac source).
@@ -808,6 +818,21 @@ class TestProvenanceContracts(unittest.TestCase):
             missing,
             [],
             f"migrate canonical missing from fleet-iac@{EXPECTED_CANONICAL_COMMIT[:7]}: {missing}",
+        )
+
+    def test_fleet_iac_paths_fixture_name_matches_canonical_pin(self):
+        """Fixture filename must track the exact 7-char canonical pin prefix."""
+        self.assertTrue(FLEET_IAC_PATHS_FIXTURE.is_file(), FLEET_IAC_PATHS_FIXTURE)
+        self.assertEqual(
+            FLEET_IAC_PATHS_FIXTURE.name,
+            f"fleet_iac_{EXPECTED_CANONICAL_COMMIT[:7]}_paths.txt",
+        )
+        self.assertIn(EXPECTED_CANONICAL_COMMIT[:7], FLEET_IAC_PATHS_FIXTURE.name)
+        # Stale pin fixture must not remain.
+        stale = FLEET_IAC_PATHS_FIXTURE.parent / "fleet_iac_234115b_paths.txt"
+        self.assertFalse(
+            stale.is_file(),
+            f"stale fixture must be removed after retarget: {stale}",
         )
 
     def test_retire_entries_have_null_canonical_and_reason(self):
@@ -1114,8 +1139,9 @@ class TestMergeOrderSequencingGate(unittest.TestCase):
     """Fail-closed fleet-first merge-order gate against a private fleet-iac checkout.
 
     home_assist is public; fleet-iac is private. Hosted CI must materialize
-    fleet-iac-canonical with FLEET_IAC_READ_TOKEN and hard-fail PR + master until
-    the pinned canonical commit is an ancestor of fleet-iac origin/master.
+    fleet-iac-canonical with FLEET_IAC_READ_SSH_KEY (read-only deploy key) and
+    hard-fail PR + master until the pinned canonical commit is an ancestor of
+    fleet-iac origin/master.
     """
 
     def test_merge_order_script_exists_and_documents_gate(self):
@@ -1126,6 +1152,8 @@ class TestMergeOrderSequencingGate(unittest.TestCase):
         self.assertIn("merge", text.lower())
         self.assertIn("merge-base", text)
         self.assertIn("--is-ancestor", text)
+        self.assertIn("FLEET_IAC_READ_SSH_KEY", text)
+        self.assertNotIn("FLEET_IAC_READ_TOKEN", text)
 
     def test_readme_documents_merge_order_prerequisite(self):
         text = README_PATH.read_text(encoding="utf-8")
@@ -1136,7 +1164,23 @@ class TestMergeOrderSequencingGate(unittest.TestCase):
                 re.I,
             ),
         )
-        self.assertIn(EXPECTED_CANONICAL_COMMIT[:7], text)
+        self.assertIn(EXPECTED_CANONICAL_COMMIT, text)
+        self.assertIn("FLEET_IAC_READ_SSH_KEY", text)
+        self.assertNotIn("FLEET_IAC_READ_TOKEN", text)
+        # Docs must forbid 1Password / op:// secret references (mention is OK as a ban).
+        self.assertNotIn("op://", text)
+        self.assertRegex(
+            text,
+            re.compile(r"no\s+1\s*password|without\s+1\s*password|not\s+.*1\s*password", re.I),
+        )
+        self.assertRegex(
+            text,
+            re.compile(r"read-only\s+.*deploy\s+key|deploy\s+key.*read-only", re.I),
+        )
+        self.assertTrue(
+            "merged" in text.lower() or "on mainline" in text.lower(),
+            "README must reflect post-merge canonical mainline status",
+        )
         self.assertTrue(
             "prerequisite" in text.lower()
             or "merge-ready" in text.lower()
@@ -1145,7 +1189,7 @@ class TestMergeOrderSequencingGate(unittest.TestCase):
             or "mainline" in text.lower()
         )
 
-    def test_agents_md_documents_merge_order_prerequisite_and_read_token(self):
+    def test_agents_md_documents_merge_order_prerequisite_and_ssh_deploy_key(self):
         agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
         lowered = agents.lower()
         self.assertTrue(
@@ -1154,17 +1198,25 @@ class TestMergeOrderSequencingGate(unittest.TestCase):
             or "fleet-first" in lowered,
             "AGENTS.md must document the fleet-first merge-order prerequisite",
         )
-        self.assertIn("FLEET_IAC_READ_TOKEN", agents)
+        self.assertIn("FLEET_IAC_READ_SSH_KEY", agents)
+        self.assertNotIn("FLEET_IAC_READ_TOKEN", agents)
         self.assertIn("fleet-iac-canonical", agents)
-        # Document credential setup without embedding secret values or 1Password.
-        self.assertNotRegex(agents, re.compile(r"1password|op://", re.I))
+        self.assertIn(EXPECTED_CANONICAL_COMMIT[:7], agents)
+        # Document credential setup without embedding secret values or op:// refs.
+        self.assertNotIn("op://", agents)
+        self.assertRegex(
+            agents,
+            re.compile(r"no\s+1\s*password|without\s+1\s*password|not\s+.*1\s*password", re.I),
+        )
         self.assertTrue(
-            "fine-grained" in lowered
-            or "read-only" in lowered
-            or "deploy" in lowered
-            or "contents: read" in lowered
-            or "repository secret" in lowered,
-            "AGENTS.md must document required read-only token/deploy credential setup",
+            ("read-only" in lowered or "readonly" in lowered)
+            and "deploy" in lowered
+            and ("ssh" in lowered or "ssh-key" in lowered or "deploy key" in lowered),
+            "AGENTS.md must document required read-only SSH deploy key setup",
+        )
+        self.assertNotRegex(
+            agents,
+            re.compile(r"fine-grained\s+.*PAT|personal\s+access\s+token", re.I),
         )
 
     def test_merge_order_gate_fails_closed_when_canonical_object_missing(self):
