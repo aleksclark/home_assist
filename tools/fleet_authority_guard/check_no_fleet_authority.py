@@ -10,6 +10,9 @@ paths under fleet/. The only permitted fleet/** paths are the exact allowlist:
 Any other tracked or untracked path under fleet/ fails closed — regardless of
 case, suffix, nesting, or symlink. Path normalization rejects traversal and
 casefolded allowlist lookalikes.
+
+Also rejects casefold-equivalent top-level trees (FLEET/, Fleet/, …) and requires
+allowlisted paths to be regular files (not symlinks or directories).
 """
 
 from __future__ import annotations
@@ -17,12 +20,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import stat
 import subprocess
 import sys
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 TOOL_NAME = "check_no_fleet_authority"
-TOOL_VERSION = "2.0.0"
+TOOL_VERSION = "2.1.0"
 
 DEFAULT_MANIFEST_REL = Path("fleet/MIGRATION_MANIFEST.json")
 
@@ -33,6 +37,9 @@ HARD_ALLOWLIST = frozenset(
         "fleet/MIGRATION_MANIFEST.json",
     }
 )
+
+# Casefold of the sole permitted top-level directory name.
+FLEET_TOP_CASEFOLD = "fleet"
 
 
 def _normalize_rel(rel: str) -> str | None:
@@ -63,6 +70,17 @@ def _normalize_rel(rel: str) -> str | None:
     if not parts:
         return None
     return "/".join(parts)
+
+
+def _is_fleet_casefold_tree(rel: str) -> bool:
+    """True when path is under a casefold-equivalent of fleet/ (including exact)."""
+    top = rel.split("/", 1)[0]
+    return top.casefold() == FLEET_TOP_CASEFOLD
+
+
+def _is_exact_lowercase_fleet(rel: str) -> bool:
+    top = rel.split("/", 1)[0]
+    return top == "fleet"
 
 
 def _git_paths(root: Path, *, include_untracked: bool) -> list[str]:
@@ -153,8 +171,37 @@ def _load_allowlist(root: Path, manifest_path: Path) -> set[str]:
     return allow
 
 
-def _is_under_fleet(rel: str) -> bool:
-    return rel == "fleet" or rel.startswith("fleet/")
+def _is_regular_file(path: Path) -> bool:
+    """True only for non-symlink regular files."""
+    try:
+        st = path.lstat()
+    except OSError:
+        return False
+    return stat.S_ISREG(st.st_mode)
+
+
+def _check_allowlist_file_types(root: Path, allow: set[str], errs: list[str]) -> None:
+    """Allowlisted paths must exist as regular files (not symlinks/dirs)."""
+    for rel in sorted(allow):
+        full = root / rel
+        if not full.exists() and not full.is_symlink():
+            # Missing allowlist files are not reintroduction; path guard elsewhere
+            # may still care. Skip absence here — retirement branch always has them.
+            continue
+        if full.is_symlink():
+            errs.append(
+                f"allowlisted path must be a regular file (symlink forbidden): {rel}"
+            )
+            continue
+        if full.is_dir():
+            errs.append(
+                f"allowlisted path must be a regular file (directory forbidden): {rel}"
+            )
+            continue
+        if not _is_regular_file(full):
+            errs.append(
+                f"allowlisted path must be a regular file: {rel}"
+            )
 
 
 def check(root: Path, *, manifest: Path, include_untracked: bool = True) -> list[str]:
@@ -166,11 +213,23 @@ def check(root: Path, *, manifest: Path, include_untracked: bool = True) -> list
         norm = _normalize_rel(raw)
         if norm is None:
             # unsafe / traversal path referencing fleet somehow
-            if "fleet" in raw.replace("\\", "/").split("/"):
+            if "fleet" in raw.replace("\\", "/").casefold().split("/"):
                 errs.append(f"unsafe fleet path rejected: {raw}")
             continue
-        if not _is_under_fleet(norm):
+
+        if not _is_fleet_casefold_tree(norm):
             continue
+
+        # Casefold top-level trees other than exact lowercase fleet/ are forbidden
+        # wholesale (FLEET/, Fleet/, and all contents).
+        if not _is_exact_lowercase_fleet(norm):
+            top = norm.split("/", 1)[0]
+            errs.append(
+                f"casefold fleet tree forbidden (only lowercase fleet/ allowed): {raw}"
+            )
+            seen_normalized.add(norm)
+            continue
+
         if norm in seen_normalized:
             continue
         seen_normalized.add(norm)
@@ -178,18 +237,43 @@ def check(root: Path, *, manifest: Path, include_untracked: bool = True) -> list
         if norm in allow:
             continue
 
-        # Exact allowlist only — any other fleet/** path is forbidden.
+        # Exact allowlist only under lowercase fleet/ — any other path is forbidden.
         errs.append(f"path not allowlisted under fleet/: {raw}")
 
-    # Also scan filesystem under fleet/ for dangling dirs/symlinks not in git listing
-    # (git ls-files lists blob paths; empty dirs won't appear — that's fine.
-    #  Symlinks to dirs are listed when tracked/untracked as the symlink path.)
-    fleet_dir = root / "fleet"
-    if fleet_dir.exists():
+    # Also scan filesystem under any casefold-equivalent fleet tree for dangling
+    # dirs/symlinks not in git listing.
+    try:
+        top_names = [p.name for p in root.iterdir()]
+    except OSError:
+        top_names = []
+
+    for name in top_names:
+        if name.casefold() != FLEET_TOP_CASEFOLD:
+            continue
+        fleet_dir = root / name
+        if not fleet_dir.exists() and not fleet_dir.is_symlink():
+            continue
+
+        # Symlinked top-level FLEET/fleet is itself forbidden unless exact allowlist
+        if fleet_dir.is_symlink():
+            rel = fleet_dir.relative_to(root).as_posix()
+            if name != "fleet":
+                errs.append(
+                    f"casefold fleet tree forbidden (only lowercase fleet/ allowed): {rel}"
+                )
+            else:
+                errs.append(f"path not allowlisted under fleet/: {rel}")
+            continue
+
+        if name != "fleet":
+            # Report the tree itself and walk contents
+            errs.append(
+                f"casefold fleet tree forbidden (only lowercase fleet/ allowed): {name}/"
+            )
+
         for dirpath, dirnames, filenames in os.walk(fleet_dir, followlinks=False):
-            # detect case-colliding directory names that sneak past case-sensitive git
-            for name in list(dirnames) + list(filenames):
-                full = Path(dirpath) / name
+            for entry_name in list(dirnames) + list(filenames):
+                full = Path(dirpath) / entry_name
                 try:
                     rel = full.relative_to(root).as_posix()
                 except ValueError:
@@ -199,16 +283,31 @@ def check(root: Path, *, manifest: Path, include_untracked: bool = True) -> list
                 if norm is None:
                     errs.append(f"unsafe fleet path rejected: {rel}")
                     continue
+
+                if not _is_exact_lowercase_fleet(norm):
+                    if norm not in seen_normalized:
+                        seen_normalized.add(norm)
+                        report = False
+                        if full.is_symlink() or full.is_file():
+                            report = True
+                        elif full.is_dir():
+                            try:
+                                report = next(full.iterdir(), None) is None
+                            except OSError:
+                                report = True
+                        if report:
+                            errs.append(
+                                f"casefold fleet tree forbidden (only lowercase fleet/ allowed): {rel}"
+                            )
+                    continue
+
                 if norm in allow or norm in seen_normalized:
                     continue
-                # only report files and symlinks (not intermediate dirs solely as containers)
+
                 if full.is_symlink() or full.is_file():
                     seen_normalized.add(norm)
                     errs.append(f"path not allowlisted under fleet/: {rel}")
                 elif full.is_dir():
-                    # empty non-allowlisted dirs still constitute reintroduction surface
-                    # if they are top-level authority-shaped or any leftover tree node
-                    # with no children yet — report the directory itself when empty
                     try:
                         next(full.iterdir())
                     except StopIteration:
@@ -217,6 +316,7 @@ def check(root: Path, *, manifest: Path, include_untracked: bool = True) -> list
                     except OSError:
                         errs.append(f"unreadable path under fleet/: {rel}")
 
+    _check_allowlist_file_types(root, allow, errs)
     return sorted(set(errs))
 
 

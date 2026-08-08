@@ -21,12 +21,51 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-PRE_MIGRATION_REF = os.environ.get("FLEET_AUTHORITY_BASE_REF", "origin/master")
 MANIFEST_PATH = REPO_ROOT / "fleet" / "MIGRATION_MANIFEST.json"
 README_PATH = REPO_ROOT / "fleet" / "README.md"
 GUARD_SCRIPT = REPO_ROOT / "tools" / "fleet_authority_guard" / "check_no_fleet_authority.py"
+MERGE_ORDER_SCRIPT = (
+    REPO_ROOT / "tools" / "fleet_authority_guard" / "check_fleet_iac_merge_order.py"
+)
+
+# Expected provenance pins (stable across post-merge HEAD movement).
+EXPECTED_SOURCE_COMMIT = "8d23d803377d9b0434b4543825be5ae57a65253b"
+EXPECTED_CANONICAL_COMMIT = "234115bfb1afbf01838656bb48dc27c2a008acd8"
 
 ALLOWED_ACTIONS = frozenset({"migrate", "retire", "retain-non-authoritative"})
+
+
+def _manifest_source_commit() -> str:
+    data = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    commit = data.get("source_commit")
+    if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise AssertionError(f"manifest source_commit missing/invalid: {commit!r}")
+    return commit
+
+
+def _pre_migration_ref() -> str:
+    """Git object used for pre-migration fleet/** provenance.
+
+    Default is the pinned manifest source_commit (not floating origin/master).
+    FLEET_AUTHORITY_BASE_REF may override for tooling, but provenance tests that
+    need the pre-retirement tree always resolve via source_commit when the
+    override points at a post-retirement tip (HEAD / origin/master after merge).
+    """
+    override = os.environ.get("FLEET_AUTHORITY_BASE_REF")
+    if override and override not in {"HEAD", "origin/master", "master"}:
+        return override
+    return _manifest_source_commit()
+
+
+# Back-compat name used throughout this module.
+PRE_MIGRATION_REF = None  # resolved lazily via _resolve_pre_migration_ref()
+
+
+def _resolve_pre_migration_ref() -> str:
+    global PRE_MIGRATION_REF
+    if PRE_MIGRATION_REF is None:
+        PRE_MIGRATION_REF = _pre_migration_ref()
+    return PRE_MIGRATION_REF
 
 # Paths that must never remain as active fleet control-plane authority.
 FORBIDDEN_PREFIXES = (
@@ -74,10 +113,11 @@ def _git(*args: str, cwd: Path = REPO_ROOT) -> str:
 
 
 def _pre_migration_fleet_paths() -> list[str]:
-    out = _git("ls-tree", "-r", "--name-only", PRE_MIGRATION_REF, "--", "fleet/")
+    ref = _resolve_pre_migration_ref()
+    out = _git("ls-tree", "-r", "--name-only", ref, "--", "fleet/")
     paths = [p for p in out.splitlines() if p]
     if not paths:
-        raise AssertionError(f"no fleet/** paths on {PRE_MIGRATION_REF}")
+        raise AssertionError(f"no fleet/** paths on {ref}")
     return sorted(paths)
 
 
@@ -100,10 +140,16 @@ class TestMigrationManifestExhaustive(unittest.TestCase):
         self.assertEqual(data.get("task"), "9")
         self.assertEqual(data.get("source_repo"), "aleksclark/home_assist")
         self.assertEqual(data.get("canonical_repo"), "aleksclark/fleet-iac")
-        self.assertIn("source_commit", data)
-        self.assertIn("canonical_commit", data)
+        self.assertEqual(data.get("source_commit"), EXPECTED_SOURCE_COMMIT)
+        self.assertEqual(data.get("canonical_commit"), EXPECTED_CANONICAL_COMMIT)
         self.assertIn("entries", data)
         self.assertIsInstance(data["entries"], list)
+        # merge-order sequencing: HA PR merge-ready only after canonical on fleet-iac mainline
+        seq = data.get("merge_sequencing") or data.get("release_prerequisites")
+        self.assertIsInstance(seq, dict, "manifest must declare merge_sequencing")
+        self.assertEqual(seq.get("canonical_commit"), EXPECTED_CANONICAL_COMMIT)
+        self.assertIn(seq.get("canonical_mainline_status"), {"pending", "merged"})
+        self.assertTrue(seq.get("home_assist_merge_blocked_until_canonical_on_mainline"))
         # value-free: no secret-shaped assignment values in JSON text
         raw = MANIFEST_PATH.read_text(encoding="utf-8")
         self.assertIsNone(
@@ -375,6 +421,19 @@ class TestWorkflowPresent(unittest.TestCase):
         )
         self.assertIn("check_no_fleet_authority.py", text)
         self.assertIn("test_fleet_authority_retirement.py", text)
+        # Provenance must pin/fetch manifest source_commit fail-hard (no || true).
+        self.assertIn("source_commit", text)
+        self.assertNotRegex(text, r"git\s+fetch[^\n]*\|\|\s*true")
+        self.assertNotIn("FLEET_AUTHORITY_BASE_REF: origin/master", text)
+        # Merge-order gate is a release/merge prerequisite, not branch unit CI.
+        self.assertIn("check_fleet_iac_merge_order.py", text)
+        self.assertRegex(
+            text,
+            re.compile(
+                r"merge.order|merge_order|merge-ready|release.?prerequisite|merge.?prerequisite",
+                re.I,
+            ),
+        )
 
 
 
@@ -615,19 +674,32 @@ class TestProvenanceContracts(unittest.TestCase):
         from collections import Counter
 
         c = Counter(e["action"] for e in data["entries"])
-        self.assertEqual(data["entry_count"], 169)
-        self.assertEqual(len(data["entries"]), 169)
+        derived_total = len(data["entries"])
+        # Census is derived from entries/actions — no drift vs hardcoded constants.
+        self.assertEqual(data["entry_count"], derived_total)
+        self.assertEqual(len(data["entries"]), data["entry_count"])
         self.assertEqual(data["action_counts"].get("retire"), c.get("retire"))
         self.assertEqual(data["action_counts"].get("migrate"), c.get("migrate"))
-        self.assertEqual(c.get("retire"), 29)
-        self.assertEqual(c.get("migrate"), 140)
+        self.assertEqual(
+            data["action_counts"].get("retain-non-authoritative", 0),
+            c.get("retain-non-authoritative", 0),
+        )
+        self.assertEqual(sum(data["action_counts"].values()), derived_total)
+        # Still exhaustive over pre-migration source tree
+        pre = _pre_migration_fleet_paths()
+        self.assertEqual(derived_total, len(pre))
+        self.assertEqual(sorted(e["path"] for e in data["entries"]), pre)
+        # Preserve expected source/canonical pins
+        self.assertEqual(data["source_commit"], EXPECTED_SOURCE_COMMIT)
+        self.assertEqual(data["canonical_commit"], EXPECTED_CANONICAL_COMMIT)
+        # Sanity: after archiso reclass we still have both migrate and retire
+        self.assertGreater(c.get("migrate", 0), 0)
+        self.assertGreater(c.get("retire", 0), 0)
         self.assertEqual(c.get("retain-non-authoritative", 0), 0)
 
     def test_migrate_canonical_paths_exist_in_fleet_iac_fixture(self):
         data = _load_manifest()
-        self.assertEqual(
-            data.get("canonical_commit"), "234115bfb1afbf01838656bb48dc27c2a008acd8"
-        )
+        self.assertEqual(data.get("canonical_commit"), EXPECTED_CANONICAL_COMMIT)
         fleet_paths = _load_fleet_iac_paths()
         missing = []
         for e in data["entries"]:
@@ -642,7 +714,7 @@ class TestProvenanceContracts(unittest.TestCase):
         self.assertEqual(
             missing,
             [],
-            f"migrate canonical missing from fleet-iac@234115b: {missing}",
+            f"migrate canonical missing from fleet-iac@{EXPECTED_CANONICAL_COMMIT[:7]}: {missing}",
         )
 
     def test_retire_entries_have_null_canonical_and_reason(self):
@@ -666,6 +738,10 @@ class TestProvenanceContracts(unittest.TestCase):
         pre = _pre_migration_fleet_paths()
         by_path = {e["path"]: e for e in data["entries"]}
         self.assertEqual(sorted(by_path), pre)
+        self.assertEqual(data["source_commit"], EXPECTED_SOURCE_COMMIT)
+        ref = _resolve_pre_migration_ref()
+        # Even if env override is HEAD/post-retirement tip, provenance uses source_commit.
+        self.assertEqual(ref, EXPECTED_SOURCE_COMMIT)
         sha_re = re.compile(r"^[0-9a-f]{64}$")
         env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
         import hashlib
@@ -680,7 +756,7 @@ class TestProvenanceContracts(unittest.TestCase):
                     str(REPO_ROOT),
                     "cat-file",
                     "-p",
-                    f"{PRE_MIGRATION_REF}:{path}",
+                    f"{ref}:{path}",
                 ],
                 capture_output=True,
                 check=True,
@@ -688,6 +764,383 @@ class TestProvenanceContracts(unittest.TestCase):
             )
             digest = hashlib.sha256(proc.stdout).hexdigest()
             self.assertEqual(digest, e["source_sha256"], path)
+
+    def test_provenance_defaults_to_manifest_source_commit_not_floating_tip(self):
+        """Post-merge simulation: BASE_REF=HEAD still validates against source_commit."""
+        self.assertEqual(_manifest_source_commit(), EXPECTED_SOURCE_COMMIT)
+        # Clear any cached ref
+        global PRE_MIGRATION_REF
+        old = os.environ.get("FLEET_AUTHORITY_BASE_REF")
+        try:
+            for tip in ("HEAD", "origin/master", "master", None):
+                PRE_MIGRATION_REF = None
+                if tip is None:
+                    os.environ.pop("FLEET_AUTHORITY_BASE_REF", None)
+                else:
+                    os.environ["FLEET_AUTHORITY_BASE_REF"] = tip
+                ref = _pre_migration_ref()
+                self.assertEqual(
+                    ref,
+                    EXPECTED_SOURCE_COMMIT,
+                    f"tip override {tip!r} must still resolve to source_commit",
+                )
+                paths = _pre_migration_fleet_paths()
+                self.assertGreater(len(paths), 2)
+                self.assertIn("fleet/ansible.cfg", paths)
+            # Explicit post-retirement tip: current HEAD allowlist-only tree
+            # must differ from pinned source_commit pre-migration tree.
+            PRE_MIGRATION_REF = None
+            os.environ["FLEET_AUTHORITY_BASE_REF"] = "HEAD"
+            source_paths = _pre_migration_fleet_paths()
+            head_paths = [
+                p
+                for p in _git(
+                    "ls-tree", "-r", "--name-only", "HEAD", "--", "fleet/"
+                ).splitlines()
+                if p
+            ]
+            self.assertEqual(
+                sorted(head_paths),
+                ["fleet/MIGRATION_MANIFEST.json", "fleet/README.md"],
+            )
+            self.assertNotEqual(sorted(source_paths), sorted(head_paths))
+            self.assertIn("fleet/ansible.cfg", source_paths)
+        finally:
+            PRE_MIGRATION_REF = None
+            if old is None:
+                os.environ.pop("FLEET_AUTHORITY_BASE_REF", None)
+            else:
+                os.environ["FLEET_AUTHORITY_BASE_REF"] = old
+
+
+class TestGuardCasefoldTopLevel(unittest.TestCase):
+    """Reject casefold-equivalent top-level fleet trees (FLEET/, Fleet/)."""
+
+    def test_guard_rejects_casefold_top_level_fleet_trees_and_contents(self):
+        variants = ["FLEET", "Fleet", "FlEeT"]
+        for top in variants:
+            with self.subTest(top=top):
+                with tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    _seed_pointer_repo(root)
+                    # tracked nested authority under casefold top-level
+                    tracked = root / top / "roles" / "x.yml"
+                    tracked.parent.mkdir(parents=True, exist_ok=True)
+                    tracked.write_text("x\n", encoding="utf-8")
+                    subprocess.run(
+                        ["git", "add", "-A"], cwd=root, check=True, capture_output=True
+                    )
+                    # untracked file under same tree
+                    untracked = root / top / "inventory" / "hosts.yml"
+                    untracked.parent.mkdir(parents=True, exist_ok=True)
+                    untracked.write_text("all: {}\n", encoding="utf-8")
+                    # symlink under casefold tree
+                    target = root / "outside.yml"
+                    target.write_text("secret: 1\n", encoding="utf-8")
+                    link = root / top / "playbooks_link"
+                    link.symlink_to(target)
+                    # empty dir under casefold tree
+                    empty = root / top / "group_vars"
+                    empty.mkdir(parents=True, exist_ok=True)
+
+                    bad = _run_guard(root)
+                    self.assertNotEqual(
+                        bad.returncode, 0, top + " " + bad.stdout + bad.stderr
+                    )
+                    combined = bad.stdout + bad.stderr
+                    self.assertTrue(
+                        top in combined or top.lower() in combined.lower(),
+                        combined,
+                    )
+                    # contents should surface too
+                    self.assertTrue(
+                        "roles" in combined
+                        or "inventory" in combined
+                        or "playbooks_link" in combined
+                        or "group_vars" in combined
+                        or "not allowlisted" in combined.lower()
+                        or "casefold" in combined.lower(),
+                        combined,
+                    )
+
+    def test_guard_rejects_mixed_casefold_with_lowercase_fleet_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_pointer_repo(root)
+            (root / "FLEET" / "nomad").mkdir(parents=True)
+            (root / "FLEET" / "nomad" / "job.hcl").write_text("job {}\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "add", "-A"], cwd=root, check=True, capture_output=True
+            )
+            bad = _run_guard(root)
+            self.assertNotEqual(bad.returncode, 0, bad.stdout + bad.stderr)
+            self.assertIn("FLEET", bad.stdout + bad.stderr)
+
+
+class TestGuardAllowlistRegularFiles(unittest.TestCase):
+    def test_guard_rejects_symlinked_allowlist_readme_and_manifest(self):
+        for name in ("README.md", "MIGRATION_MANIFEST.json"):
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    _seed_pointer_repo(root)
+                    target = root / f"outside_{name}"
+                    if name.endswith(".json"):
+                        target.write_text(
+                            json.dumps(
+                                {
+                                    "schema_version": 1,
+                                    "task": "9",
+                                    "entries": [],
+                                    "allowlist_paths": sorted(HARD_FLEET_ALLOWLIST),
+                                }
+                            ),
+                            encoding="utf-8",
+                        )
+                    else:
+                        target.write_text(
+                            "MOVED\naleksclark/fleet-iac\nplatform/ansible\njobs/\n",
+                            encoding="utf-8",
+                        )
+                    path = root / "fleet" / name
+                    path.unlink()
+                    path.symlink_to(target)
+                    subprocess.run(
+                        ["git", "add", "-A"], cwd=root, check=True, capture_output=True
+                    )
+                    bad = _run_guard(root)
+                    self.assertNotEqual(
+                        bad.returncode, 0, name + " " + bad.stdout + bad.stderr
+                    )
+                    combined = (bad.stdout + bad.stderr).lower()
+                    self.assertTrue(
+                        "symlink" in combined
+                        or "regular file" in combined
+                        or name.lower() in combined,
+                        combined,
+                    )
+
+    def test_guard_requires_regular_files_at_exact_allowlist_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_pointer_repo(root)
+            # replace README with a directory
+            readme = root / "fleet" / "README.md"
+            readme.unlink()
+            readme.mkdir()
+            (readme / "nested.txt").write_text("x\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "add", "-A"], cwd=root, check=True, capture_output=True
+            )
+            bad = _run_guard(root)
+            self.assertNotEqual(bad.returncode, 0, bad.stdout + bad.stderr)
+
+
+class TestMergeOrderSequencingGate(unittest.TestCase):
+    """Fail-closed release/merge prerequisite: canonical fleet-iac commit on mainline.
+
+    This is intentionally NOT a unit-CI hard-fail for the retirement branch while
+    the fleet-iac PR remains unmerged — the gate script/docs/workflow exist and
+    unit tests validate the contract shape + fail-closed behavior in fixtures.
+    """
+
+    def test_merge_order_script_exists_and_documents_gate(self):
+        self.assertTrue(MERGE_ORDER_SCRIPT.is_file())
+        text = MERGE_ORDER_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("canonical_commit", text)
+        self.assertIn("mainline", text.lower())
+        self.assertIn("merge", text.lower())
+
+    def test_readme_documents_merge_order_prerequisite(self):
+        text = README_PATH.read_text(encoding="utf-8")
+        self.assertRegex(
+            text,
+            re.compile(
+                r"merge.?order|merge-ready|canonical.*mainline|fleet-iac.*main",
+                re.I,
+            ),
+        )
+        self.assertIn(EXPECTED_CANONICAL_COMMIT[:7], text)
+        self.assertTrue(
+            "prerequisite" in text.lower()
+            or "merge-ready" in text.lower()
+            or "must land" in text.lower()
+            or "before merging" in text.lower()
+            or "mainline" in text.lower()
+        )
+
+    def test_merge_order_gate_fails_closed_when_canonical_not_on_mainline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # minimal home_assist-like manifest
+            (root / "fleet").mkdir()
+            manifest = {
+                "schema_version": 1,
+                "task": "9",
+                "source_commit": EXPECTED_SOURCE_COMMIT,
+                "canonical_repo": "aleksclark/fleet-iac",
+                "canonical_commit": EXPECTED_CANONICAL_COMMIT,
+                "merge_sequencing": {
+                    "canonical_commit": EXPECTED_CANONICAL_COMMIT,
+                    "canonical_mainline_ref": "origin/master",
+                    "canonical_mainline_status": "pending",
+                    "home_assist_merge_blocked_until_canonical_on_mainline": True,
+                    "note": "Do not merge home_assist Task 9 until canonical is on fleet-iac mainline.",
+                },
+                "entries": [],
+            }
+            (root / "fleet" / "MIGRATION_MANIFEST.json").write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
+            # fake fleet-iac repo without the commit on mainline
+            fi = root / "fleet-iac"
+            fi.mkdir()
+            subprocess.run(["git", "init"], cwd=fi, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "t@example.com"],
+                cwd=fi,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "t"],
+                cwd=fi,
+                check=True,
+                capture_output=True,
+            )
+            (fi / "README.md").write_text("fi\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=fi, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", "init"],
+                cwd=fi,
+                check=True,
+                capture_output=True,
+            )
+            # mainline ref without canonical commit
+            subprocess.run(
+                ["git", "branch", "-M", "master"], cwd=fi, check=True, capture_output=True
+            )
+            env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+            env["FLEET_IAC_REPO"] = str(fi)
+            bad = subprocess.run(
+                [
+                    sys.executable,
+                    str(MERGE_ORDER_SCRIPT),
+                    "--root",
+                    str(root),
+                    "--fleet-iac",
+                    str(fi),
+                    "--mainline-ref",
+                    "master",
+                ],
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            self.assertNotEqual(bad.returncode, 0, bad.stdout + bad.stderr)
+            combined = (bad.stdout + bad.stderr).lower()
+            self.assertTrue(
+                "mainline" in combined
+                or "not an ancestor" in combined
+                or "merge" in combined
+                or EXPECTED_CANONICAL_COMMIT[:7] in combined,
+                combined,
+            )
+
+    def test_merge_order_gate_passes_when_canonical_on_mainline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "fleet").mkdir()
+            fi = root / "fleet-iac"
+            fi.mkdir()
+            subprocess.run(["git", "init"], cwd=fi, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "t@example.com"],
+                cwd=fi,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "t"],
+                cwd=fi,
+                check=True,
+                capture_output=True,
+            )
+            (fi / "README.md").write_text("fi\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=fi, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", "init"],
+                cwd=fi,
+                check=True,
+                capture_output=True,
+            )
+            # Create a commit and record its sha as "canonical"
+            (fi / "canon.txt").write_text("c\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=fi, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", "canonical"],
+                cwd=fi,
+                check=True,
+                capture_output=True,
+            )
+            canon = subprocess.run(
+                ["git", "-C", str(fi), "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+            subprocess.run(
+                ["git", "branch", "-M", "master"], cwd=fi, check=True, capture_output=True
+            )
+            manifest = {
+                "schema_version": 1,
+                "task": "9",
+                "canonical_commit": canon,
+                "merge_sequencing": {
+                    "canonical_commit": canon,
+                    "canonical_mainline_ref": "master",
+                    "canonical_mainline_status": "merged",
+                    "home_assist_merge_blocked_until_canonical_on_mainline": True,
+                },
+                "entries": [],
+            }
+            (root / "fleet" / "MIGRATION_MANIFEST.json").write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
+            ok = subprocess.run(
+                [
+                    sys.executable,
+                    str(MERGE_ORDER_SCRIPT),
+                    "--root",
+                    str(root),
+                    "--fleet-iac",
+                    str(fi),
+                    "--mainline-ref",
+                    "master",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+
+    def test_unit_ci_does_not_hard_fail_merge_order_while_pending(self):
+        """Branch CI may invoke the gate in report-only/soft mode; not as unit failure."""
+        wf = (REPO_ROOT / ".github" / "workflows" / "ci-fleet-authority-guard.yml").read_text(
+            encoding="utf-8"
+        )
+        # Unit discover path must not require fleet-iac network or hard-fail merge order.
+        # Merge-order check is a separate job/step gated as release/merge prerequisite.
+        self.assertIn("check_fleet_iac_merge_order.py", wf)
+        # Soft/report path markers — continue-on-error OR if: false on PR OR explicit soft flag
+        soft = (
+            "continue-on-error: true" in wf
+            or "--soft" in wf
+            or "report-only" in wf
+            or "merge-prerequisite" in wf
+            or "release-prerequisite" in wf
+            or "if: github.event_name" in wf
+        )
+        self.assertTrue(soft, "workflow must not hard-fail unit CI on pending merge-order")
 
 
 if __name__ == "__main__":

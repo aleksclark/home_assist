@@ -2,6 +2,11 @@
 #
 # Least privilege: contents:read only. No repository secrets, no id-token,
 # no write permissions. SHA-pinned actions.
+#
+# Merge-order gate (canonical fleet-iac commit on mainline) is a
+# release/merge prerequisite. On pull_request it runs report-only (--soft)
+# so the retirement branch CI stays green while fleet-iac remains unmerged.
+# On push to master it runs fail-closed.
 
 name: fleet-authority-guard
 
@@ -42,10 +47,58 @@ jobs:
       - name: Fail-closed path guard
         run: python3 tools/fleet_authority_guard/check_no_fleet_authority.py --root .
 
+      - name: Resolve and require manifest source_commit
+        id: provenance
+        run: |
+          set -euo pipefail
+          SOURCE_COMMIT="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("fleet/MIGRATION_MANIFEST.json").read_text(encoding="utf-8"))
+          c = data.get("source_commit")
+          if not isinstance(c, str) or len(c) != 40:
+              raise SystemExit(f"invalid source_commit: {c!r}")
+          print(c)
+          PY
+          )"
+          echo "source_commit=${SOURCE_COMMIT}" >> "$GITHUB_OUTPUT"
+          # Fail-hard: require the exact pre-migration object (no || true).
+          git cat-file -t "${SOURCE_COMMIT}"
+          git rev-parse --verify "${SOURCE_COMMIT}^{commit}"
+
       - name: Retirement contract tests
         env:
-          FLEET_AUTHORITY_BASE_REF: origin/master
+          # Prefer exact source_commit; tests also fall back to manifest pin when
+          # BASE_REF is HEAD/origin/master/master (post-merge tips).
+          FLEET_AUTHORITY_BASE_REF: ${{ steps.provenance.outputs.source_commit }}
         run: |
-          git fetch --no-tags origin master:refs/remotes/origin/master 2>/dev/null || true
+          set -euo pipefail
           # tests/fleet_authority/test_fleet_authority_retirement.py
           python3 -m unittest discover -s tests/fleet_authority -p 'test_*.py' -v
+
+      - name: Merge-order release prerequisite (soft on PR)
+        # release-prerequisite / merge-prerequisite: fail-closed only on master push.
+        # Branch unit CI must not hard-fail while fleet-iac PR is intentionally unmerged.
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          FLEET_IAC_REPO: ${{ vars.FLEET_IAC_REPO || '' }}
+        run: |
+          set -euo pipefail
+          python3 tools/fleet_authority_guard/check_fleet_iac_merge_order.py \
+            --root . \
+            --soft \
+            --report-only \
+            --mainline-ref origin/master
+          # Explicit soft/report-only path for PR branch CI (merge-order pending is OK).
+
+      - name: Merge-order release prerequisite (fail-closed on master)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          FLEET_IAC_REPO: ${{ vars.FLEET_IAC_REPO || '' }}
+        run: |
+          set -euo pipefail
+          # Fail-closed merge-ready gate once this lands on master.
+          python3 tools/fleet_authority_guard/check_fleet_iac_merge_order.py \
+            --root . \
+            --mainline-ref origin/master

@@ -3,7 +3,7 @@
   "task": "9",
   "title": "Retire duplicate Home Assistant fleet Ansible/Nomad authority",
   "source_repo": "aleksclark/home_assist",
-  "source_ref": "origin/master",
+  "source_ref": "source_commit:8d23d803377d9b0434b4543825be5ae57a65253b",
   "source_commit": "8d23d803377d9b0434b4543825be5ae57a65253b",
   "canonical_repo": "aleksclark/fleet-iac",
   "canonical_commit": "234115bfb1afbf01838656bb48dc27c2a008acd8",
@@ -1395,5 +1395,13 @@
       "source_sha256": "cd21d1dfc4f20a956c8868bac1e0eab5fc6e33aae4592233e0a17f8ca9ec1e16",
       "notes": "Role nomad owned by fleet-iac platform/ansible/roles/nomad."
     }
-  ]
+  ],
+  "merge_sequencing": {
+    "canonical_repo": "aleksclark/fleet-iac",
+    "canonical_commit": "234115bfb1afbf01838656bb48dc27c2a008acd8",
+    "canonical_mainline_ref": "origin/master",
+    "canonical_mainline_status": "pending",
+    "home_assist_merge_blocked_until_canonical_on_mainline": true,
+    "note": "Release/merge prerequisite: home_assist Task 9 is NOT merge-ready until canonical_commit is an ancestor of fleet-iac mainline (origin/master). The fleet-iac PR that carries 234115bf remains intentionally unmerged; do not retarget the canonical pin until that PR merges. Enforce via tools/fleet_authority_guard/check_fleet_iac_merge_order.py (fail-closed for merge-ready; soft/report-only on branch CI)."
+  }
 }
