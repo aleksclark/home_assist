@@ -24,6 +24,6 @@ See the value-free classification/provenance report:
 
 - Do **not** run Ansible against paths under `home_assist/fleet`.
 - Do **not** submit Nomad jobs from `home_assist/fleet` (there are none).
-- Do **not** reintroduce inventories, roles, playbooks, or fleet Nomad jobspecs here — CI fails closed on reintroduction (`tools/fleet_authority_guard/`).
+- Do **not** reintroduce *any* path under `fleet/` other than this README and `MIGRATION_MANIFEST.json` — CI fails closed on an exact allowlist (`tools/fleet_authority_guard/`), including case variants, symlinks, and untracked files.
 
 Home Assistant application config, ESPHome/device sources, and project jobspecs under `services/` are unchanged and remain in this repository.

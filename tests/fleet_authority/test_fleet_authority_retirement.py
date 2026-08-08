@@ -377,5 +377,318 @@ class TestWorkflowPresent(unittest.TestCase):
         self.assertIn("test_fleet_authority_retirement.py", text)
 
 
+
+FLEET_IAC_PATHS_FIXTURE = (
+    Path(__file__).resolve().parent / "fixtures" / "fleet_iac_234115b_paths.txt"
+)
+
+# Stock archiso enablement symlinks intentionally retired (no unique fleet-iac source).
+RETIRED_ARCHISO_ENABLEMENT_SYMLINKS = (
+    "fleet/archiso/airootfs/etc/systemd/system-generators/systemd-gpt-auto-generator",
+    "fleet/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.ModemManager1.service",
+    "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/ModemManager.service",
+    "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_fcopy_daemon.service",
+    "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_kvp_daemon.service",
+    "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_vss_daemon.service",
+    "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/iwd.service",
+    "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/livecd-talk.service",
+    "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vboxservice.service",
+    "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vmtoolsd.service",
+    "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vmware-vmblock-fuse.service",
+)
+
+HARD_FLEET_ALLOWLIST = frozenset(
+    {
+        "fleet/README.md",
+        "fleet/MIGRATION_MANIFEST.json",
+    }
+)
+
+
+def _seed_pointer_repo(root: Path) -> None:
+    (root / "fleet").mkdir(parents=True, exist_ok=True)
+    (root / "fleet" / "README.md").write_text(
+        "MOVED\naleksclark/fleet-iac\nplatform/ansible\njobs/\n",
+        encoding="utf-8",
+    )
+    (root / "fleet" / "MIGRATION_MANIFEST.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "task": "9",
+                "entries": [],
+                "allowlist_paths": sorted(HARD_FLEET_ALLOWLIST),
+            }
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "test"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", "add", "fleet"], cwd=root, check=True, capture_output=True)
+
+
+def _run_guard(root: Path, *extra: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(GUARD_SCRIPT), "--root", str(root), *extra],
+        capture_output=True,
+        text=True,
+    )
+
+
+def _load_fleet_iac_paths() -> set[str]:
+    assert FLEET_IAC_PATHS_FIXTURE.is_file(), f"missing fixture {FLEET_IAC_PATHS_FIXTURE}"
+    return {
+        ln.strip()
+        for ln in FLEET_IAC_PATHS_FIXTURE.read_text(encoding="utf-8").splitlines()
+        if ln.strip()
+    }
+
+
+class TestGuardExactAllowlist(unittest.TestCase):
+    """Only fleet/README.md and fleet/MIGRATION_MANIFEST.json may exist under fleet/."""
+
+    def test_guard_rejects_case_alternate_top_level_authority_names(self):
+        cases = [
+            ("Roles/x/tasks/main.yml", "roles"),
+            ("Group_vars/all.yml", "group_vars"),
+            ("Host_vars/node.yml", "host_vars"),
+            ("Inventory/hosts.yml", "inventory"),
+            ("Nomad/job.nomad.hcl", "nomad"),
+            ("jobs/traefik.nomad", "jobs"),
+            ("playbooks/site.yml", "playbooks"),
+            ("ansible.cfg", "ansible"),
+            ("Ansible.cfg", "ansible"),
+            ("ANSIBLE.CFG", "ansible"),
+        ]
+        for rel, needle in cases:
+            with self.subTest(rel=rel):
+                with tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    _seed_pointer_repo(root)
+                    target = root / "fleet" / rel
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("x\n", encoding="utf-8")
+                    subprocess.run(
+                        ["git", "add", "-A"], cwd=root, check=True, capture_output=True
+                    )
+                    bad = _run_guard(root)
+                    self.assertNotEqual(
+                        bad.returncode, 0, rel + " " + bad.stdout + bad.stderr
+                    )
+                    combined = (bad.stdout + bad.stderr).lower()
+                    self.assertTrue(
+                        needle in combined
+                        or rel.lower().split("/")[0] in combined
+                        or "not allowlisted" in combined
+                        or "fleet/" in combined,
+                        combined,
+                    )
+
+    def test_guard_rejects_extensionless_hcl_mixed_case_and_nested(self):
+        samples = [
+            "fleet/nomad/infra/job",  # extensionless
+            "fleet/NoMaD/Traefik.HCL",
+            "fleet/roles/nested/deep/tasks/main.yml",
+            "fleet/something_else.txt",
+            "fleet/archiso/build.sh",
+            "fleet/monitoring/rules.yml",
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_pointer_repo(root)
+            for rel in samples:
+                p = root / rel
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text("x\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "add", "-A"], cwd=root, check=True, capture_output=True
+            )
+            bad = _run_guard(root)
+            self.assertNotEqual(bad.returncode, 0, bad.stdout + bad.stderr)
+            combined = bad.stdout + bad.stderr
+            for rel in samples:
+                self.assertIn(rel, combined)
+
+    def test_guard_rejects_symlink_and_untracked_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_pointer_repo(root)
+            target = root / "outside_secret.yml"
+            target.write_text("secret: x\n", encoding="utf-8")
+            link = root / "fleet" / "roles_link"
+            link.symlink_to(target)
+            subprocess.run(
+                ["git", "add", "-A"], cwd=root, check=True, capture_output=True
+            )
+            bad = _run_guard(root)
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertIn("roles_link", bad.stdout + bad.stderr)
+
+            link.unlink()
+            subprocess.run(
+                ["git", "rm", "-f", "fleet/roles_link"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+            )
+            untracked = root / "fleet" / "Inventory" / "hosts.yml"
+            untracked.parent.mkdir(parents=True, exist_ok=True)
+            untracked.write_text("all: {}\n", encoding="utf-8")
+            bad2 = _run_guard(root)
+            self.assertNotEqual(bad2.returncode, 0, bad2.stdout + bad2.stderr)
+            self.assertIn("Inventory", bad2.stdout + bad2.stderr)
+
+    def test_guard_rejects_path_traversal_and_casefolded_allowlist_bypass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_pointer_repo(root)
+            (root / "fleet" / "readme.md").write_text("nope\n", encoding="utf-8")
+            (root / "fleet" / "Migration_Manifest.json").write_text("{}\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "add", "-A"], cwd=root, check=True, capture_output=True
+            )
+            bad = _run_guard(root)
+            self.assertNotEqual(bad.returncode, 0, bad.stdout + bad.stderr)
+            combined = bad.stdout + bad.stderr
+            self.assertIn("readme.md", combined)
+            self.assertIn("Migration_Manifest.json", combined)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_pointer_repo(root)
+            evil_dir = root / "fleet" / "nested"
+            evil_dir.mkdir()
+            (evil_dir / "x.yml").write_text("x\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "add", "-A"], cwd=root, check=True, capture_output=True
+            )
+            bad = _run_guard(root)
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertIn("nested", bad.stdout + bad.stderr)
+
+    def test_guard_allows_only_exact_hard_allowlist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _seed_pointer_repo(root)
+            ok = _run_guard(root)
+            self.assertEqual(ok.returncode, 0, ok.stdout + ok.stderr)
+
+
+class TestProvenanceContracts(unittest.TestCase):
+    def test_retired_archiso_enablement_symlinks_reclassified(self):
+        data = _load_manifest()
+        by_path = {e["path"]: e for e in data["entries"]}
+        for path in RETIRED_ARCHISO_ENABLEMENT_SYMLINKS:
+            self.assertIn(path, by_path)
+            e = by_path[path]
+            self.assertEqual(e["action"], "retire", path)
+            self.assertIsNone(e.get("canonical"), path)
+            rel = (e.get("relation") or "").lower()
+            notes = (e.get("notes") or "").lower()
+            self.assertTrue(
+                "stock" in rel or "enablement" in rel or "symlink" in rel,
+                f"relation should mark stock enablement symlink: {e.get('relation')}",
+            )
+            self.assertTrue(
+                ("stock" in notes or "enablement" in notes)
+                and (
+                    "retired" in notes
+                    or "no unique" in notes
+                    or "intentionally" in notes
+                ),
+                f"notes must explain intentional retirement: {e.get('notes')}",
+            )
+
+    def test_action_counts_match_entries_after_archiso_reclass(self):
+        data = _load_manifest()
+        from collections import Counter
+
+        c = Counter(e["action"] for e in data["entries"])
+        self.assertEqual(data["entry_count"], 169)
+        self.assertEqual(len(data["entries"]), 169)
+        self.assertEqual(data["action_counts"].get("retire"), c.get("retire"))
+        self.assertEqual(data["action_counts"].get("migrate"), c.get("migrate"))
+        self.assertEqual(c.get("retire"), 29)
+        self.assertEqual(c.get("migrate"), 140)
+        self.assertEqual(c.get("retain-non-authoritative", 0), 0)
+
+    def test_migrate_canonical_paths_exist_in_fleet_iac_fixture(self):
+        data = _load_manifest()
+        self.assertEqual(
+            data.get("canonical_commit"), "234115bfb1afbf01838656bb48dc27c2a008acd8"
+        )
+        fleet_paths = _load_fleet_iac_paths()
+        missing = []
+        for e in data["entries"]:
+            if e["action"] != "migrate":
+                continue
+            canon = e.get("canonical")
+            if not isinstance(canon, str) or not canon:
+                missing.append((e["path"], canon, "empty-canonical"))
+                continue
+            if canon not in fleet_paths:
+                missing.append((e["path"], canon, "not-in-tree"))
+        self.assertEqual(
+            missing,
+            [],
+            f"migrate canonical missing from fleet-iac@234115b: {missing}",
+        )
+
+    def test_retire_entries_have_null_canonical_and_reason(self):
+        data = _load_manifest()
+        bad = []
+        for e in data["entries"]:
+            if e["action"] != "retire":
+                continue
+            if e.get("canonical") is not None:
+                bad.append((e["path"], "canonical-not-null", e.get("canonical")))
+            relation = e.get("relation")
+            notes = e.get("notes") or ""
+            if not relation:
+                bad.append((e["path"], "missing-relation", None))
+            if not notes:
+                bad.append((e["path"], "missing-notes", None))
+        self.assertEqual(bad, [], f"retire provenance contract violations: {bad}")
+
+    def test_source_sha256_exhaustive_and_stable(self):
+        data = _load_manifest()
+        pre = _pre_migration_fleet_paths()
+        by_path = {e["path"]: e for e in data["entries"]}
+        self.assertEqual(sorted(by_path), pre)
+        sha_re = re.compile(r"^[0-9a-f]{64}$")
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        import hashlib
+
+        for path in pre:
+            e = by_path[path]
+            self.assertRegex(e.get("source_sha256", ""), sha_re, path)
+            proc = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(REPO_ROOT),
+                    "cat-file",
+                    "-p",
+                    f"{PRE_MIGRATION_REF}:{path}",
+                ],
+                capture_output=True,
+                check=True,
+                env=env,
+            )
+            digest = hashlib.sha256(proc.stdout).hexdigest()
+            self.assertEqual(digest, e["source_sha256"], path)
+
+
 if __name__ == "__main__":
     unittest.main()

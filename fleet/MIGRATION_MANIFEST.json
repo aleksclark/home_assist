@@ -18,8 +18,8 @@
   ],
   "classification_notes": {
     "migrate": "Already present (exact or transformed) under aleksclark/fleet-iac; remove executable duplicate from home_assist.",
-    "retire": "No deploy path remains; deleted from home_assist without a same-shape canonical successor (or project-owned elsewhere).",
-    "retain-non-authoritative": "Kept only when unique non-executable documentation/reference remains. Task 9 found no such unique fleet/** artifacts after classification \u2014 archiso and monitoring are superseded by fleet-iac credential-free trees and are classified migrate (delete local copies)."
+    "retire": "No deploy path remains; deleted from home_assist without a same-shape canonical successor (or project-owned elsewhere). Includes stock-unit enablement symlinks intentionally retired with canonical:null when fleet-iac has no unique source.",
+    "retain-non-authoritative": "Kept only when unique non-executable documentation/reference remains. Task 9 found no such unique fleet/** artifacts after classification — archiso and monitoring are superseded by fleet-iac credential-free trees (migrate) or stock enablement symlinks with no unique source (retire)."
   },
   "allowlist_paths": [
     "fleet/README.md",
@@ -30,38 +30,26 @@
     "fleet/MIGRATION_MANIFEST.json"
   ],
   "forbidden_reintroduction": {
-    "prefixes": [
-      "fleet/ansible.cfg",
-      "fleet/inventory/",
-      "fleet/group_vars/",
-      "fleet/host_vars/",
-      "fleet/roles/",
-      "fleet/playbooks/",
-      "fleet/nomad/",
-      "fleet/ansible/",
-      "fleet/jobs/"
+    "policy": "exact-allowlist",
+    "allowlist_paths": [
+      "fleet/README.md",
+      "fleet/MIGRATION_MANIFEST.json"
     ],
-    "shapes": [
-      "fleet/**/ansible.cfg",
-      "fleet/**/hosts.yml",
-      "fleet/**/*.nomad.hcl",
-      "fleet/**/*.nomad",
-      "fleet/**/site.yml"
-    ]
+    "note": "Any tracked or untracked path under fleet/ other than the exact allowlist fails closed (case-sensitive; no prefix widen; symlinks included)."
   },
   "entry_count": 169,
   "action_counts": {
-    "retire": 18,
-    "migrate": 151
+    "retire": 29,
+    "migrate": 140
   },
   "entries": [
     {
       "path": "fleet/README.md",
       "action": "retire",
-      "canonical": "platform/ansible/README.md + fleet-iac jobs/",
+      "canonical": null,
       "relation": "pointer-replacement",
       "source_sha256": "e2a4f3869ced45cdca1f1c828f14e7a61a5b5167cb60e554067d68d0108dacbf",
-      "notes": "Replaced by MOVED pointer; no executable authority remains in home_assist/fleet."
+      "notes": "Replaced by MOVED pointer; no executable authority remains in home_assist/fleet. Prior non-canonical pointer/reference: platform/ansible/README.md + fleet-iac jobs/."
     },
     {
       "path": "fleet/ansible.cfg",
@@ -249,11 +237,11 @@
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system-generators/systemd-gpt-auto-generator",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system-generators/systemd-gpt-auto-generator",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "fd5d32feb2d3562582258990ecfca9b88376957e512d5caac72ad89fc78d2df4",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/choose-mirror.service",
@@ -305,11 +293,11 @@
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.ModemManager1.service",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.ModemManager1.service",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "211f1f6ee060e34cc2abbbc672f292a4ba0d0c3efb35f4ff5e3ec8824f2639fe",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/dbus-org.freedesktop.network1.service",
@@ -369,11 +357,11 @@
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/ModemManager.service",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/ModemManager.service",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "211f1f6ee060e34cc2abbbc672f292a4ba0d0c3efb35f4ff5e3ec8824f2639fe",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/choose-mirror.service",
@@ -385,43 +373,43 @@
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_fcopy_daemon.service",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_fcopy_daemon.service",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "2969ded7cac01e473b4ee9a6f0167ef04ba53a5fcec8594a1082723e61523810",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_kvp_daemon.service",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_kvp_daemon.service",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "d0cf8affa60e0cf5153e65b801f9912f8e9acd00bf7e53f92d3abe6295af26f5",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_vss_daemon.service",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/hv_vss_daemon.service",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "094731e1bbcdefec05fc6323cb666b22a7e27ffd95dd4e04970287b974f60201",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/iwd.service",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/iwd.service",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "43ba3a7f83bfd33def61dd5b8e4f32e191bce6a60eece7714a8355aae582d6d5",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/livecd-talk.service",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/livecd-talk.service",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "a03891b4310746ce9ea353b8321bd5284666a2fa40180e9a7c720861ba56d9b9",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/pacman-init.service",
@@ -457,27 +445,27 @@
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vboxservice.service",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vboxservice.service",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "8bd51fdd81490a7b9e39c2f93d8b564604f1c52d23b8967df138cfc88223732f",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vmtoolsd.service",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vmtoolsd.service",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "a6df42e55ff0240ec1f1015c115e9500ed5614a8b14ad6c6ce6683d77fc87b31",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vmware-vmblock-fuse.service",
-      "action": "migrate",
-      "canonical": "platform/archiso/airootfs/etc/systemd/system/multi-user.target.wants/vmware-vmblock-fuse.service",
-      "relation": "excluded-or-restructured",
+      "action": "retire",
+      "canonical": null,
+      "relation": "stock-unit-enablement-symlink-retired",
       "source_sha256": "869229f4afeb297d752f268748c5bc1271a2b9009c2e9b5872725ab01650e7fa",
-      "notes": "Canonical bootstrap ISO is fleet-iac platform/archiso (credential-free; I11). Do not keep HA archiso as deployable authority (contains historical credential classes)."
+      "notes": "Stock-unit enablement symlink intentionally retired; no unique source in fleet-iac platform/archiso (credential-free tree does not carry this enablement link). Deleted from home_assist with no same-shape canonical successor."
     },
     {
       "path": "fleet/archiso/airootfs/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service",
@@ -842,18 +830,18 @@
     {
       "path": "fleet/inventory/group_vars",
       "action": "migrate",
-      "canonical": "platform/ansible/inventory/group_vars -> ../group_vars",
+      "canonical": "platform/ansible/inventory/group_vars",
       "relation": "symlink-layout-in-canonical",
       "source_sha256": "e9e0ef55804ca5e2e2c548944d52f4a8790d1d85f9264423ae3d23a9d705e3bc",
-      "notes": "Inventory group/host vars layout owned by fleet-iac (real dirs + inventory symlinks)."
+      "notes": "Inventory group_vars is a symlink at fleet-iac platform/ansible/inventory/group_vars -> ../group_vars; layout owned by fleet-iac (real dirs + inventory symlinks)."
     },
     {
       "path": "fleet/inventory/host_vars",
       "action": "migrate",
-      "canonical": "platform/ansible/inventory/host_vars -> ../host_vars",
+      "canonical": "platform/ansible/inventory/host_vars",
       "relation": "symlink-layout-in-canonical",
       "source_sha256": "0947ba5f81e03401423b3fdb6aac0e220beb0ac38de1a1f2d223bb8c2d1c2b74",
-      "notes": "Inventory group/host vars layout owned by fleet-iac (real dirs + inventory symlinks)."
+      "notes": "Inventory host_vars is a symlink at fleet-iac platform/ansible/inventory/host_vars -> ../host_vars; layout owned by fleet-iac (real dirs + inventory symlinks)."
     },
     {
       "path": "fleet/inventory/hosts.yml",
@@ -1034,10 +1022,10 @@
     {
       "path": "fleet/nomad/media/goshelf.nomad.hcl",
       "action": "retire",
-      "canonical": "aleksclark/goshelf:deploy/nomad/jobs/goshelf.nomad.hcl",
+      "canonical": null,
       "relation": "project-owned",
       "source_sha256": "5acf58658d36d01839c8b08c9a3bc0cff12e7dd98df311f9cd625360c960177c",
-      "notes": "goshelf is project-owned; not fleet-iac jobs/ and must not remain as home_assist fleet authority."
+      "notes": "goshelf is project-owned; not fleet-iac jobs/ and must not remain as home_assist fleet authority. Prior non-canonical pointer/reference: aleksclark/goshelf:deploy/nomad/jobs/goshelf.nomad.hcl."
     },
     {
       "path": "fleet/nomad/media/jackett.nomad.hcl",
@@ -1258,90 +1246,90 @@
     {
       "path": "fleet/roles/blockyard/defaults/main.yml",
       "action": "retire",
-      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "238b4630d2e020c9b3c9810a3a8cc0a4a11d1cd5d4f35f4e5151d608880c10cf",
-      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/blockyard-cleanup."
     },
     {
       "path": "fleet/roles/blockyard/handlers/main.yml",
       "action": "retire",
-      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "b1abe3393aa3891f54ad5d9a0d41cf53afb381c3e266fd2ef30c4c49bdddacda",
-      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/blockyard-cleanup."
     },
     {
       "path": "fleet/roles/blockyard/tasks/disks.yml",
       "action": "retire",
-      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "1ad2a62abac355332ebd8f2d8179d6f9c2e90f1dbcf98c72a6caec74c860bda9",
-      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/blockyard-cleanup."
     },
     {
       "path": "fleet/roles/blockyard/tasks/main.yml",
       "action": "retire",
-      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "c5c74e619a0fbb30257527a44ef9748fe76467d5ff7caf65c96d879cd70ba3ee",
-      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/blockyard-cleanup."
     },
     {
       "path": "fleet/roles/blockyard/templates/blockyard-consul.json.j2",
       "action": "retire",
-      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "1597aa46975646aea5f3044e3aa1c92e62ed8370af6951558e574465a9c35ee6",
-      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/blockyard-cleanup."
     },
     {
       "path": "fleet/roles/blockyard/templates/blockyard.service.j2",
       "action": "retire",
-      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "bf907f49b394cce8501684029eb4ed560300a199bcb0c3af92dd783e2914820b",
-      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/blockyard-cleanup."
     },
     {
       "path": "fleet/roles/blockyard/templates/blockyard.toml.j2",
       "action": "retire",
-      "canonical": "platform/ansible/roles/blockyard-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "7eb182bc1e258d7de130d57855aab2e7ad35ab549d17df05c8fedf4a74a1f8a5",
-      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active blockyard deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/blockyard-cleanup."
     },
     {
       "path": "fleet/roles/consul/defaults/main.yml",
       "action": "retire",
-      "canonical": "platform/ansible/roles/consul-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "a9da4509bbea37478cd1118c3dd3ea4fcc594f59233b9a9fa2a42540a11a7f25",
-      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/consul-cleanup."
     },
     {
       "path": "fleet/roles/consul/handlers/main.yml",
       "action": "retire",
-      "canonical": "platform/ansible/roles/consul-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "25addd011f1e1a915b3cca1992de851000ad6ad9724d20f04ddf8f5b9311056c",
-      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/consul-cleanup."
     },
     {
       "path": "fleet/roles/consul/tasks/main.yml",
       "action": "retire",
-      "canonical": "platform/ansible/roles/consul-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "0300012f8008bff14fcccc138426e9b031e3d78e5311d677d86ab747baf22eb0",
-      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/consul-cleanup."
     },
     {
       "path": "fleet/roles/consul/templates/consul.hcl.j2",
       "action": "retire",
-      "canonical": "platform/ansible/roles/consul-cleanup",
+      "canonical": null,
       "relation": "cleanup-only-replacement",
       "source_sha256": "6eb2ae700ebda47da7bbfa3f0094ac5594378a5080057acdd36cfd925ab6faac",
-      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path."
+      "notes": "Active consul deploy role retired; fleet-iac provides cleanup-only role, not a bind/deploy path. Prior non-canonical pointer/reference: platform/ansible/roles/consul-cleanup."
     },
     {
       "path": "fleet/roles/docker/defaults/main.yml",
