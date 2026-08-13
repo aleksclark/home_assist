@@ -1,75 +1,22 @@
-# Value-free deployment contract for minisplit-otel-poller.
-# Secrets are never stored here — key names only.
-
-job_id: minisplit-otel-poller
-classification: project-owned
-canonical_path: services/minisplit-otel-poller/deploy/nomad/jobs/minisplit-otel-poller.nomad.hcl
-statefulness: stateless
-observe_only: true
-
-image:
-  registry: ghcr.io
-  repository: aleksclark/minisplit-otel-poller
-  # tag + digest authority live in images.lock.hcl / jobspec pin
-
-endpoints:
-  mqtt_broker_class: fqdn
-  mqtt_broker: tcp://mqtt.fleet.clark.team:1883
-  mqtt_resolved_vip_class: "192.168.0.100:1883"
-  # Per-node otel-agent OTLP HTTP (Nomad interpolates placement node IP).
-  otlp_class: per_node_otel_agent
-  otlp: "http://${attr.unique.network.ip-address}:4328"
-  otlp_port: 4328
-  otlp_forbidden:
-    - otel-collector.fleet.clark.team:4318
-    - direct node IP :4318
-  health_port: 9105
-  health_paths:
-    - /healthz
-    - /readyz
-    - /metricsz
-
-secret_variable_path: nomad/jobs/minisplit-otel-poller
-secret_key_names:
-  - mqtt_username
-  - mqtt_password
-
-non_secret_env_keys:
-  - MQTT_BROKER
-  - OTEL_EXPORTER_OTLP_ENDPOINT
-  - OTEL_RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT
-  - POLL_INTERVAL
-  - HEALTH_ADDR
-  - DEVICES
-
-device_inventory:
-  source: env DEVICES
-  expected_count: 3
-  # names/IPs are operational inventory, not printed in audits beyond counts
-
-resources:
-  cpu: 100
-  memory_mb: 64
-
-update:
-  max_parallel: 1
-  auto_revert: true
-  health_check: checks
-
-rollback:
-  method: nomad auto_revert + previous image digest pin
-  purge: never
-
-verification:
-  - Stable=true latest deployment successful
-  - Restarts=0 on running alloc
-  - image digest matches images.lock.hcl
-  - MQTT connected (readyz 200) to mqtt.fleet.clark.team -> .100
-  - /metricsz device_count == expected_count
-  - observe_only true on /metricsz
-  - poll_ok increases; no control publish paths
-  - OTEL export via local otel-agent :4328 (POST accept + agent export counters)
-  - OTEL metrics arrive in collector/SigNoz by metric class/count only (not metricsz metric_ok alone)
-  - FHM/HA/MQTT unaffected
-  # Endpoint health is verified externally (node :4328 + otel-agent/SigNoz).
-  # App /metricsz metric_ok is local Record only — not an export ACK.
+# Plan-03 project deployment contract (schema v1).
+# Value-free. Secrets live only in Nomad Variables (paths listed below).
+# Fleet reconciler should point project-home-assist at this manifest path:
+#   services/minisplit-otel-poller/deploy/nomad/deployment.yaml
+schema_version: 1
+project: home-assist-minisplit
+owner: aleks-clark
+repository: https://github.com/aleksclark/home_assist
+ref_policy: signed-default-branch-commit
+namespace: default
+datacenters: [home]
+release_sets:
+  - name: minisplit
+    jobs:
+      - id: minisplit-otel-poller
+        spec: jobs/minisplit-otel-poller.nomad.hcl
+    env: env/home.nomadvars.hcl
+    images: images.lock.hcl
+    variable_paths:
+      - nomad/jobs/minisplit-otel-poller
+    rollout: serial
+    prune: explicit-only

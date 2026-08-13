@@ -1,0 +1,8 @@
+# CODEOWNERS — deploy/nomad ownership (plan 03 §3.5).
+# Monorepo: minisplit contract lives under services/minisplit-otel-poller/.
+# GitHub required-review enforcement depends on repo plan/rulesets; this file
+# still documents intended owners and is checked by deploy/nomad/tests/contract.sh.
+
+/services/minisplit-otel-poller/deploy/nomad/ @aleksclark
+/.github/workflows/release-minisplit-otel-poller.yml @aleksclark
+/.github/workflows/release*.yml @aleksclark

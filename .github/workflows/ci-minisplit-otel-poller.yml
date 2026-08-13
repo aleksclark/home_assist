@@ -28,5 +28,10 @@ jobs:
       - name: Jobspec contract tests
         run: go test ./deploy/nomad/jobs -count=1
 
+      - name: Plan-03 deploy/nomad contract
+        # Repo-root relative; script resolves monorepo paths itself.
+        working-directory: ${{ github.workspace }}
+        run: bash services/minisplit-otel-poller/deploy/nomad/tests/contract.sh
+
       - name: Vet
         run: go vet ./...

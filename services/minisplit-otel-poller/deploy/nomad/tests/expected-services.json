@@ -1,0 +1,74 @@
+{
+  "release_set": "minisplit",
+  "project": "home-assist-minisplit",
+  "namespace": "default",
+  "datacenters": ["home"],
+  "jobs": [
+    {
+      "id": "minisplit-otel-poller",
+      "type": "service",
+      "spec": "jobs/minisplit-otel-poller.nomad.hcl",
+      "observe_only": true,
+      "statefulness": "stateless",
+      "groups": [
+        {
+          "name": "poller",
+          "count": 1,
+          "update": {
+            "max_parallel": 1,
+            "canary": 0,
+            "auto_revert": true
+          },
+          "services": [
+            {
+              "name": "minisplit-otel-poller",
+              "port_label": "health",
+              "provider": "nomad",
+              "static_port": 9105,
+              "checks": [
+                {
+                  "name": "minisplit-liveness",
+                  "type": "http",
+                  "path": "/healthz",
+                  "interval": "15s"
+                },
+                {
+                  "name": "minisplit-readiness",
+                  "type": "http",
+                  "path": "/readyz",
+                  "interval": "15s"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "endpoints": {
+        "mqtt_broker": "tcp://mqtt.fleet.clark.team:1883",
+        "mqtt_resolved_vip_class": "192.168.0.100:1883",
+        "otlp_class": "per_node_otel_agent",
+        "otlp_port": 4328,
+        "otlp_forbidden": [
+          "otel-collector.fleet.clark.team:4318",
+          "direct node IP :4318"
+        ],
+        "health_paths": ["/healthz", "/readyz", "/metricsz"]
+      },
+      "device_inventory": {
+        "source": "env DEVICES",
+        "expected_count": 3
+      },
+      "secret_variable_path": "nomad/jobs/minisplit-otel-poller",
+      "secret_keys": ["mqtt_username", "mqtt_password"],
+      "image_var": "image_minisplit_otel_poller",
+      "image": {
+        "repository": "ghcr.io/aleksclark/minisplit-otel-poller",
+        "authority": "digest",
+        "forbid_latest": true
+      }
+    }
+  ],
+  "meta_required": [
+    "observe_only"
+  ]
+}
