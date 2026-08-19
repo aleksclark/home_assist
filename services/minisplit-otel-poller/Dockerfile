@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Pin builder base by digest when available; tag kept for readability.
-FROM golang:1.25-bookworm AS builder
+FROM golang:1.26.6-bookworm AS builder
 
 WORKDIR /src
 COPY go.mod go.sum ./
