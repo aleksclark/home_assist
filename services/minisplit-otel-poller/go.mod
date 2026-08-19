@@ -1,6 +1,6 @@
 module github.com/aleksclark/minisplit-otel-poller
 
-go 1.25.0
+go 1.26.6
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.1
