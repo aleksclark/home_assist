@@ -109,17 +109,24 @@ Check the device index page (`http://<device_ip>/index?state=1`). You should see
 
 ## MQTT Topics
 
+> These tables describe the patched firmware (`openbeken-heat-cool.patch`).
+> Stock OpenBeken uses a single `TargetTemperature` and the full mode/fan lists.
+> See [README.md](README.md#patched-openbeken-firmware) for build/OTA steps.
+
 ### State Topics (device publishes)
 
 | Topic | Description | Values |
 |-------|-------------|--------|
 | `<device>/connected` | Availability | `online` / `offline` |
-| `<device>/ACMode/get` | Current mode | `off`, `cool`, `heat`, `dry`, `fan`, `auto` |
+| `<device>/ACMode/get` | Current mode | `off`, `heat_cool`, `fan_only` |
+| `<device>/HVACAction/get` | What the unit is actually doing | `heating`, `cooling`, `drying`, `defrosting`, `fan`, `idle`, `off` |
+| `<device>/FanRunning/get` | Indoor fan actually spinning | `0` / `1` |
 | `<device>/CurrentTemperature/get` | Room temperature | Integer (Celsius) |
-| `<device>/TargetTemperature/get` | Set temperature | Integer (Celsius) |
-| `<device>/FANMode/get` | Fan speed | `1`-`5`, `mute`, `turbo`, `auto` |
-| `<device>/SwingV/get` | Vertical swing | `none`, `move_full`, `move_upper`, `move_lower`, `fix_top`, `fix_upper`, `fix_mid`, `fix_lower`, `fix_bottom` |
-| `<device>/SwingH/get` | Horizontal swing | `none`, `move_full`, `move_left`, `move_mid`, `move_right`, `fix_left`, `fix_mid_left`, `fix_mid`, `fix_mid_right`, `fix_right` |
+| `<device>/TargetTempLow/get` | heat_cool heat-to setpoint | Integer (Celsius) |
+| `<device>/TargetTempHigh/get` | heat_cool cool-to setpoint | Integer (Celsius) |
+| `<device>/FANMode/get` | Fan speed | `1` (mute), `2`, `3` (turbo), `auto` |
+| `<device>/SwingV/get` | Vertical swing | `none`, `move_full`, ... |
+| `<device>/SwingH/get` | Horizontal swing | `none`, `move_full`, ... |
 | `<device>/Buzzer/get` | Buzzer state | `0` / `1` |
 | `<device>/Display/get` | Display state | `0` / `1` |
 
@@ -129,11 +136,13 @@ Use the `cmnd/` prefix for commands:
 
 | Topic | Description |
 |-------|-------------|
-| `cmnd/<device>/ACMode` | Set mode |
-| `cmnd/<device>/TargetTemperature` | Set temperature |
+| `cmnd/<device>/ACMode` | Set mode (`off`, `heat_cool`, `fan_only`) |
+| `cmnd/<device>/TargetTempLow` | Set heat-to setpoint |
+| `cmnd/<device>/TargetTempHigh` | Set cool-to setpoint |
 | `cmnd/<device>/FANMode` | Set fan speed |
 | `cmnd/<device>/SwingV` | Set vertical swing |
 | `cmnd/<device>/SwingH` | Set horizontal swing |
+| `cmnd/<device>/scheduleHADiscovery` | Re-send HA discovery (climate, Fan binary_sensor, switches) |
 
 ## Home Assistant Configuration
 
