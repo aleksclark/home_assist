@@ -97,6 +97,30 @@ fn handle_client_with_prefix(stream: TcpStream, state: SharedState, mac: &str, p
     handle_client_inner(stream, state, mac, reader)
 }
 
+/// Counts a Home Assistant session as connected for as long as it is alive,
+/// so the display can flag stale data when HA goes away.
+struct HaSession(SharedState);
+
+impl HaSession {
+    fn start(state: &SharedState) -> Self {
+        adjust_ha_clients(state, 1);
+        Self(state.clone())
+    }
+}
+
+impl Drop for HaSession {
+    fn drop(&mut self) {
+        adjust_ha_clients(&self.0, -1);
+    }
+}
+
+fn adjust_ha_clients(state: &SharedState, delta: i32) {
+    if let Ok(mut st) = state.lock() {
+        let n = (st.ha_clients as i32 + delta).max(0) as u32;
+        st.set_ha_clients(n);
+    }
+}
+
 fn handle_client_inner(mut stream: TcpStream, state: SharedState, mac: &str, mut reader: FrameReader) -> Result<()> {
     stream.set_read_timeout(Some(Duration::from_secs(90)))?;
     stream.set_write_timeout(Some(Duration::from_secs(10)))?;
@@ -104,6 +128,7 @@ fn handle_client_inner(mut stream: TcpStream, state: SharedState, mac: &str, mut
     log::info!("API client connected: {:?}", stream.peer_addr());
 
     let mut read_buf = [0u8; 512];
+    let mut session: Option<HaSession> = None;
 
     loop {
         match stream.read(&mut read_buf) {
@@ -133,6 +158,9 @@ fn handle_client_inner(mut stream: TcpStream, state: SharedState, mac: &str, mut
                 MSG_SUBSCRIBE_STATES_REQ => {}
                 MSG_GET_HA_STATES_REQ => {
                     send_ha_subscriptions(&mut stream, &state)?;
+                    if session.is_none() {
+                        session = Some(HaSession::start(&state));
+                    }
                 }
                 MSG_HA_STATE_RESP => {
                     handle_ha_state(&payload, &state);
@@ -178,7 +206,7 @@ fn build_device_info(mac: &str) -> Vec<u8> {
     encode_field_string(4, ESPHOME_VERSION, &mut buf);
     encode_field_string(6, MODEL, &mut buf);
     encode_field_string(8, "resphome.status-display", &mut buf);
-    encode_field_string(9, "0.3.0", &mut buf);
+    encode_field_string(9, env!("CARGO_PKG_VERSION"), &mut buf);
     encode_field_string(12, MANUFACTURER, &mut buf);
     encode_field_string(13, FRIENDLY_NAME, &mut buf);
     buf

@@ -1,5 +1,8 @@
+mod aa_fonts;
+mod aa_text;
 mod api;
 mod backlight;
+mod canvas;
 mod ota;
 mod proto;
 mod state;
@@ -10,8 +13,6 @@ use std::thread;
 use std::time::Duration;
 
 use anyhow::Result;
-use embedded_graphics::pixelcolor::Rgb565;
-use embedded_graphics::prelude::*;
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::PinDriver;
 use esp_idf_hal::peripherals::Peripherals;
@@ -32,6 +33,7 @@ const WIFI_SSID: &str = "ClarkUltra";
 const WIFI_PASS: &str = "deadbeef00";
 const API_PORT: u16 = 6053;
 const REFRESH_INTERVAL: Duration = Duration::from_millis(500);
+const HEAP_LOG_TICKS: u32 = 120;
 
 fn main() -> Result<()> {
     esp_idf_sys::link_patches();
@@ -69,8 +71,6 @@ fn main() -> Result<()> {
 
     log::info!("Display initialized");
 
-    display.clear(Rgb565::new(2, 4, 2)).map_err(|_| anyhow::anyhow!("clear"))?;
-
     let mut dashboard = ui::Dashboard::new(String::new());
     dashboard.draw_boot_status(&mut display, "Connecting to WiFi...", None)?;
 
@@ -103,7 +103,7 @@ fn main() -> Result<()> {
     let ip_str = format!("{}", ip_info.ip);
     log::info!("WiFi connected! IP: {}", ip_str);
 
-    dashboard = ui::Dashboard::new(ip_str.clone());
+    dashboard.set_ip(ip_str.clone());
     dashboard.draw_boot_status(&mut display, "Syncing time...", Some(&ip_str))?;
 
     // -- SNTP --
@@ -135,7 +135,7 @@ fn main() -> Result<()> {
     let api_mac = mac_str.clone();
     thread::Builder::new()
         .name("api-server".into())
-        .stack_size(65536)
+        .stack_size(16384)
         .spawn(move || {
             api::start_server(api_state, api_mac, API_PORT);
         })?;
@@ -144,7 +144,13 @@ fn main() -> Result<()> {
     log::info!("Ready. Waiting for Home Assistant to connect.");
 
     // -- Display refresh loop --
+    let mut ticks: u32 = 0;
     loop {
+        if ticks % HEAP_LOG_TICKS == 0 {
+            log_heap();
+        }
+        ticks = ticks.wrapping_add(1);
+
         if let Some(stream) = api::take_ota_stream() {
             log::info!("OTA: handling on main thread");
             if let Err(e) = ota::handle_update(stream) {
@@ -154,9 +160,31 @@ fn main() -> Result<()> {
 
         bl.tick(touch.is_touched())?;
 
-        if let Err(e) = dashboard.update(&mut display, &shared_state) {
+        let (hour, minute) = local_hm();
+        if let Err(e) = dashboard.update(&mut display, &shared_state, hour, minute) {
             log::error!("Draw error: {:?}", e);
         }
         thread::sleep(REFRESH_INTERVAL);
+    }
+}
+
+fn log_heap() {
+    unsafe {
+        log::info!(
+            "heap: free={} min_free={} largest_block={}",
+            esp_idf_sys::esp_get_free_heap_size(),
+            esp_idf_sys::esp_get_minimum_free_heap_size(),
+            esp_idf_sys::heap_caps_get_largest_free_block(esp_idf_sys::MALLOC_CAP_8BIT),
+        );
+    }
+}
+
+fn local_hm() -> (u8, u8) {
+    unsafe {
+        let mut now: esp_idf_sys::time_t = 0;
+        esp_idf_sys::time(&mut now);
+        let mut tm: esp_idf_sys::tm = core::mem::zeroed();
+        esp_idf_sys::localtime_r(&now, &mut tm);
+        (tm.tm_hour as u8, tm.tm_min as u8)
     }
 }
